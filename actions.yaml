@@ -1,0 +1,4 @@
+register-user:
+  description: "Register a new user on this homeserver. Provide user, password and set admin=true if the user should be an admin"
+set-password:
+  description: "Set the password for a user."

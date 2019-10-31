@@ -1,0 +1,9 @@
+[submodule "layers/layer-snap"]
+	path = layers/layer-snap
+	url = https://github.com/stub42/layer-snap
+[submodule "layers/layer-version"]
+	path = layers/layer-version
+	url = https://github.com/pirate-charmers/layer-version
+[submodule "interfaces/interface-reverseproxy"]
+	path = interfaces/interface-reverseproxy
+	url = https://github.com/pirate-charmers/interface-reverseproxy.git

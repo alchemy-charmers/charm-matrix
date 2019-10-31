@@ -1,0 +1,49 @@
+repos:
+-   repo: git://github.com/pre-commit/pre-commit-hooks
+    sha: v1.1.1
+    hooks:
+    -   id: trailing-whitespace
+        exclude: cherrypy/test/static/index.html
+    -   id: flake8
+        args:
+        # W503 ignored for https://github.com/PyCQA/pycodestyle/issues/498
+        - --ignore=W503
+        # E126 ignored, as yapf will give better identation
+        - --ignore=E126
+    -   id: check-merge-conflict
+    -   id: double-quote-string-fixer
+    -   id: end-of-file-fixer
+    -   id: name-tests-test
+    -   id: check-ast
+    -   id: check-added-large-files
+    -   id: check-byte-order-marker
+    -   id: check-case-conflict
+    -   id: check-json
+        include: .mention-bot
+    -   id: pretty-format-json
+    -   id: check-symlinks
+    -   id: check-yaml
+    -   id: detect-private-key
+#        exclude: cherrypy/test/test.pem
+    - id: requirements-txt-fixer
+
+
+-   repo: git://github.com/Lucas-C/pre-commit-hooks
+    sha: v1.1.1
+    hooks:
+    - id: remove-tabs
+
+- repo: https://github.com/pre-commit/mirrors-yapf
+  sha: 'master'  # Use the sha / tag you want to point at
+  hooks:
+    - id: yapf
+
+- repo: https://github.com/pre-commit/mirrors-isort
+  sha: 'master'  # Use the sha / tag you want to point at
+  hooks:
+    - id: isort
+
+- repo: git://github.com/FalconSocial/pre-commit-mirrors-pep257
+  sha: 'master'
+  hooks:
+    - id: pep257

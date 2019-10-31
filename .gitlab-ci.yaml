@@ -1,0 +1,38 @@
+---
+image: 'python:3.6'
+
+stages:
+  - lint
+  - unit
+  - functional
+
+lint:
+  stage: lint
+  script:
+    - tox -e lint
+    - tox -e lintjunit
+  artifacts:
+    paths:
+      - report/lint
+    reports:
+      junit: report/lint/junit.xml
+
+unit:
+  stage: unit
+  script:
+    - tox -e unit
+  artifacts:
+    paths:
+      - report/unit
+    reports:
+      junit: report/unit/junit.xml
+
+functional:
+  stage: functional
+  script:
+    - tox -e functional
+  artifacts:
+    paths:
+      - report/functional
+    reports:
+      junit: report/functional/junit.xml
