@@ -25,11 +25,11 @@ Configuration
 This charm supports a number of configuration items for customising the behaviour of the homeserver.
 These are documented in the `config.yaml` file, however the following are the most important:
 
-`enable-registration` controls whether or not public users can register an account.
-`server-name` controls the FQDN of the server used in federation and other client operations.
-`shared-secret` allows you to provide a shared secret which is used when registering users, if enabled.
-`enable-irc` installs and configures the IRC bridge when set to true.
-`enable-slack` installs and configures the Slack bridge when set to true.
+* `enable-registration` controls whether or not public users can register an account.
+* `server-name` controls the FQDN of the server used in federation and other client operations.
+* `shared-secret` allows you to provide a shared secret which is used when registering users, if enabled.
+* `enable-irc` installs and configures the IRC bridge when set to true.
+* `enable-slack` installs and configures the Slack bridge when set to true.
 
 Do ensure you review the remainder of the configuration items, as they control security and privacy related aspects of Synapse, and the
 defaults might not suit your needs, erring on the side of privacy.
