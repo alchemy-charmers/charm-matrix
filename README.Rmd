@@ -1,3 +1,10 @@
+[![pipeline
+status](https://git.ec0.io/pirate-charmers/charm-matrix/badges/master/pipeline.svg)](https://git.ec0.io/pirate-charmers/charm-matrix/commit
+s/master)                                                                  
+[![coverage
+report](https://git.ec0.io/pirate-charmers/charm-matrix/badges/master/coverage.svg)](https://git.ec0.io/pirate-charmers/charm-matrix/commit
+s/master)
+
 # Overview
 This is a template for writing charms with unit and functional testing included
 from the start. It is meant to provide a quick start to creating a charm and
