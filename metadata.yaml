@@ -15,13 +15,13 @@ description: |
   unlike WhatsApp, Facebook, Hangouts, etc.
 
   This charm additionally installs the tools to federate your home server with Discord, Slack and IRC.
-
 tags:
   - social
 subordinate: false
 series:
   - bionic
   - xenial
+  - disco 
 requires:
   reverseproxy:
     interface: reverseproxy

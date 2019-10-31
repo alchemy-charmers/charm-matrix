@@ -10,10 +10,11 @@ juju_repository = os.getenv("JUJU_REPOSITORY", ".").rstrip("/")
 series = [
     "xenial",
     "bionic",
-    pytest.param("cosmic", marks=pytest.mark.xfail(reason="canary")),
+    "disco",
+    pytest.param("eoan", marks=pytest.mark.xfail(reason="canary")),
 ]
 sources = [
-    ("local", "{}/builds/layer-matrix".format(juju_repository)),
+    ("local", "{}/builds/matrix".format(juju_repository)),
     # ('jujucharms', 'cs:...'),
 ]
 
@@ -31,16 +32,16 @@ def source(request):
 
 @pytest.fixture
 async def app(model, series, source):
-    app_name = "layer-matrix-{}-{}".format(series, source[0])
+    app_name = "matrix-{}-{}".format(series, source[0])
     return await model._wait_for_new("application", app_name)
 
 
 @pytest.mark.deploy
-async def test_layermatrix_deploy(model, series, source, request):
+async def test_matrix_deploy(model, series, source, request):
     # Starts a deploy for each series
     # Using subprocess b/c libjuju fails with JAAS
     # https://github.com/juju/python-libjuju/issues/221
-    application_name = "layer-matrix-{}-{}".format(series, source[0])
+    application_name = "matrix-{}-{}".format(series, source[0])
     cmd = [
         "juju",
         "deploy",
@@ -80,7 +81,7 @@ async def test_charm_upgrade(model, app):
 
 @pytest.mark.deploy
 @pytest.mark.timeout(300)
-async def test_layermatrix_status(model, app):
+async def test_matrix_status(model, app):
     # Verifies status for all deployed series of the charm
     await model.block_until(lambda: app.status == "active")
     unit = app.units[0]
