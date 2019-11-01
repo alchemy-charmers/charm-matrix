@@ -59,6 +59,26 @@ async def test_matrix_deploy(model, series, source, request):
 
 
 @pytest.mark.deploy
+async def test_postgresql_deploy(model, series, request):
+    application_name = "matrix-pgsql-{}".format(series)
+    cmd = [
+        "juju",
+        "deploy",
+        "cs:postgresql",
+        "-m",
+        model.info.name,
+        "--series",
+        series,
+        application_name,
+    ]
+    if request.node.get_closest_marker("xfail"):
+        # If series is 'xfail' force install to allow testing against versions not in
+        # metadata.yaml
+        cmd.append("--force")
+    subprocess.check_call(cmd)
+
+
+@pytest.mark.deploy
 async def test_matrix_snap_upload(model, series, source, request):
     application_name = "matrix-{}-{}".format(series, source[0])
     cmd = [
@@ -72,8 +92,8 @@ async def test_matrix_snap_upload(model, series, source, request):
     subprocess.check_call(cmd)
 
 
-@pytest.mark.deploy
 @pytest.mark.timeout(900)
+@pytest.mark.deploy
 async def test_charm_upgrade(model, app):
     if app.name.endswith("local"):
         pytest.skip("No need to upgrade the local deploy")
@@ -92,13 +112,26 @@ async def test_charm_upgrade(model, app):
     await model.block_until(lambda: unit.agent_status == "executing")
 
 
-@pytest.mark.deploy
 @pytest.mark.timeout(900)
+@pytest.mark.deploy
 async def test_matrix_status(model, app):
     # Verifies status for all deployed series of the charm
-    await model.block_until(lambda: app.status == "active")
+    await model.block_until(lambda: app.status == "blocked")
     unit = app.units[0]
     await model.block_until(lambda: unit.agent_status == "idle")
+
+
+async def test_pgsql_relate(model, series, app, request):
+    """Test relating PostgreSQL to GitLab."""
+    application_name = "matrix-pgsql-{}".format(series)
+    sql = model.applications[application_name]
+    await model.add_relation(                                                                                                                
+        "{}:pgsql".format(app.name), "{}:db-admin".format(application_name)
+    )                                                                                                                                        
+    await model.block_until(lambda: sql.status == "active" or sql.status == "error")
+    await model.block_until(lambda: app.status == "active" or app.status == "error")
+    assert sql.status != "error"
+    assert app.status != "error"
 
 
 # Tests

@@ -30,7 +30,7 @@ def install_matrix_synapse():
 @when("config.changed.enable-irc")
 def install_matrix_appservice_irc():
     """Installs matrix IRC appservice snap if enabled."""
-    if hookenv.config["enable-irc"]:
+    if matrix.charm_config["enable-irc"]:
         hookenv.status_set("maintenance", "Installing Matrix IRC bridge")
         snap.install("matrix-appservice-irc")
         hookenv.status_set("active", "Matrix IRC bridge Installed")
@@ -40,7 +40,7 @@ def install_matrix_appservice_irc():
 @when("config.changed.enable-slack")
 def install_matrix_appservice_slack():
     """Installs matrix slack appservice snap if enabled."""
-    if hookenv.config["enable-slack"]:
+    if matrix.charm_config["enable-slack"]:
         hookenv.status_set("maintenance", "Installing Matrix")
         snap.install("matrix-appservice-slack")
         hookenv.status_set("active", "Matrix Slack bridge Installed")
