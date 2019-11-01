@@ -92,7 +92,7 @@ async def test_matrix_snap_upload(model, series, source, request):
     subprocess.check_call(cmd)
 
 
-@pytest.mark.timeout(900)
+@pytest.mark.timeout(300)
 @pytest.mark.deploy
 async def test_charm_upgrade(model, app):
     if app.name.endswith("local"):
@@ -112,7 +112,7 @@ async def test_charm_upgrade(model, app):
     await model.block_until(lambda: unit.agent_status == "executing")
 
 
-@pytest.mark.timeout(900)
+@pytest.mark.timeout(600)
 @pytest.mark.deploy
 async def test_matrix_status(model, app):
     # Verifies status for all deployed series of the charm
@@ -121,6 +121,7 @@ async def test_matrix_status(model, app):
     await model.block_until(lambda: unit.agent_status == "idle")
 
 
+@pytest.mark.timeout(600)
 async def test_pgsql_relate(model, series, app, request):
     """Test relating PostgreSQL to GitLab."""
     application_name = "matrix-pgsql-{}".format(series)
