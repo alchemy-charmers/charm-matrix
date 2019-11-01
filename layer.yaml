@@ -9,3 +9,12 @@ includes:
   - layer:snap
   - interface:reverseproxy
   - interface:pgsql
+options:
+  snap:
+    matrix-synapse:
+      channel: stable
+      devmode: false
+      jailmode: false
+      dangerous: false
+      classic: false
+      revision: null

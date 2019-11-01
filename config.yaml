@@ -19,6 +19,10 @@ options:
     type: boolean
     default: False
     description: "Enable or disable presence tracking in synapse."
+  enable-tls:
+    type: boolean
+    default: False
+    description: "Enable TLS via ACME. When a reverse proxy is related, this will tell the related reverse proxy to prefer port 443 for the frontend listener."
   smtp-sender:
     type: string
     default: ""

@@ -15,7 +15,7 @@ def mock_layers(monkeypatch):
 
     def options(layer):
         # mock options for layers here
-        if layer == "example-layer":
+        if layer == "snap":
             options = {"port": 9999}
             return options
         else:
