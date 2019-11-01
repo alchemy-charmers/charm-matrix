@@ -3,7 +3,7 @@ import pickle
 
 import juju
 
-# from juju.errors import JujuError
+# TODO: Resource upload for snap installs
 
 
 class JujuTools:

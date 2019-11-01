@@ -59,6 +59,20 @@ async def test_matrix_deploy(model, series, source, request):
 
 
 @pytest.mark.deploy
+async def test_matrix_snap_upload(model, series, source, request):
+    application_name = "matrix-{}-{}".format(series, source[0])
+    cmd = [
+        "juju",
+        "attach-resource",
+        "-m",
+        model.info.name,
+        application_name,
+        "matrix-synapse=snaps/matrix-synapse.snap"
+    ]
+    subprocess.check_call(cmd)
+
+
+@pytest.mark.deploy
 @pytest.mark.timeout(900)
 async def test_charm_upgrade(model, app):
     if app.name.endswith("local"):

@@ -23,3 +23,6 @@ report/*
 
 # unit state DB
 *.db
+
+# snaps for resource upload during functional test
+snaps/*.snap

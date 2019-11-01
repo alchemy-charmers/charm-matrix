@@ -28,15 +28,15 @@ requires:
   pgsql:
     interface: pgsql
 resources:
-  matrix-synapse-snap:
+  matrix-synapse:
     type: file
     filename: matrix-synapse.snap
     description: Matrix synapse snap
-  matrix-appservice-irc-snap:
+  matrix-appservice-irc:
     type: file
     filename: matrix-appservice-irc.snap
     description: Matrix IRC appservice snap
-  matrix-appservice-slack-snap:
+  matrix-appservice-slack:
     type: file
     filename: matrix-appservice-slack.snap
     description: Matrix Slack appservice snap
