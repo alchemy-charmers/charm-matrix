@@ -1,12 +1,15 @@
 #!/usr/bin/python3
+"""Test fixtures for unit testing."""
 import mock
 import pytest
 
+from charmhelpers.core import unitdata
 
 # If layer options are used, add this to pihole
 # and import layer in lib_matrix
 @pytest.fixture
 def mock_layers(monkeypatch):
+    """Mock layer configuration."""
     import sys
 
     sys.modules["charms.layer"] = mock.Mock()
@@ -26,7 +29,7 @@ def mock_layers(monkeypatch):
 
 @pytest.fixture
 def mock_action_get(monkeypatch):
-
+    """Mock the action_get function."""
     def mock_action_get(name):
         return 'blah'
 
@@ -37,7 +40,7 @@ def mock_action_get(monkeypatch):
 
 @pytest.fixture
 def mock_action_set(monkeypatch):
-
+    """Mock the action_set function."""
     mock_action_set = mock.Mock()
     monkeypatch.setattr('charmhelpers.core.hookenv.action_set',
                         mock_action_set)
@@ -46,7 +49,7 @@ def mock_action_set(monkeypatch):
 
 @pytest.fixture
 def mock_action_fail(monkeypatch):
-
+    """Mock the action_fail function."""
     mock_action_fail = mock.Mock()
     monkeypatch.setattr('charmhelpers.core.hookenv.action_fail',
                         mock_action_fail)
@@ -55,7 +58,7 @@ def mock_action_fail(monkeypatch):
 
 @pytest.fixture
 def mock_juju_unit(monkeypatch):
-
+    """Mock calls to retrieve the local unit information."""
     def mock_local_unit():
         return 'mocked'
 
@@ -66,6 +69,7 @@ def mock_juju_unit(monkeypatch):
 
 @pytest.fixture
 def mock_hookenv_config(monkeypatch):
+    """Mock the hookenv config helper."""
     import yaml
 
     def mock_config():
@@ -84,17 +88,28 @@ def mock_hookenv_config(monkeypatch):
 
 
 @pytest.fixture
+def mock_unit_db(monkeypatch):
+    """Mock the key value store."""
+    mock_kv = mock.Mock()
+    mock_kv.return_value = unitdata.Storage(path=":memory:")
+    monkeypatch.setattr("libgitlab.unitdata.kv", mock_kv)
+
+
+@pytest.fixture
 def mock_remote_unit(monkeypatch):
+    """Mock the relation remote unit."""
     monkeypatch.setattr("lib_matrix.hookenv.remote_unit", lambda: "unit-mock/0")
 
 
 @pytest.fixture
 def mock_charm_dir(monkeypatch):
+    """Mock the charm dir path."""
     monkeypatch.setattr("lib_matrix.hookenv.charm_dir", lambda: ".")
 
 
 @pytest.fixture
 def mock_template(monkeypatch):
+    """Mock syscalls used in the tempating library to prevent permissions problems."""
     monkeypatch.setattr("lib_matrix.templating.host.os.fchown", mock.Mock())
     monkeypatch.setattr("lib_matrix.templating.host.os.chown", mock.Mock())
     monkeypatch.setattr("lib_matrix.templating.host.os.fchmod", mock.Mock())
@@ -102,13 +117,15 @@ def mock_template(monkeypatch):
 
 @pytest.fixture
 def mock_socket(monkeypatch):
-    monkeypatch.setattr("lib_matrix.socket.getfqdn", lambda: "mock-host")
+    """Mock common socket library functions for testing with known inputs."""
+    monkeypatch.setattr("lib_matrix.socket.getfqdn", lambda: "mockhost")
 
 
 @pytest.fixture
 def matrix(
     tmpdir, mock_hookenv_config, mock_charm_dir, mock_template, mock_socket, monkeypatch
 ):
+    """Mock the Matrix helper library."""
     from lib_matrix import MatrixHelper
 
     helper = MatrixHelper()

@@ -122,6 +122,7 @@ async def test_matrix_status(model, app):
 
 
 @pytest.mark.timeout(600)
+@pytest.mark.deploy
 async def test_pgsql_relate(model, series, app, request):
     """Test relating PostgreSQL to GitLab."""
     application_name = "matrix-pgsql-{}".format(series)

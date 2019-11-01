@@ -1,3 +1,4 @@
+"""Helper class for configuring Matrix."""
 import socket
 
 from charmhelpers.core import hookenv, host, templating, unitdata
@@ -14,17 +15,21 @@ from charms.reactive.helpers import any_file_changed
 
 
 class MatrixHelper:
+    """Helper class for installing, configuring and managing services for Matrix."""
 
-    homeserver_config = "/snap/matrix-synapse/homeserver.yaml"
+    homeserver_config = "/var/snap/matrix-synapse/homeserver.yaml"
+    synapse_service = "snap.matrix-synapse.matrix-synapse"
+
+    HEALTHY = "Matrix homeserver installed and configured."
 
     def __init__(self):
         """Load hookenv key/value store and charm configuration."""
         self.charm_config = hookenv.config()
         self.kv = unitdata.kv()
 
-    def set_password(self):
-        """ An example function for calling from an action """
-        return
+    def set_password(self, user, password):
+        """Set the password for a provided synapse user."""
+        return True
 
     def register_user(self, user, password=None, admin=False):
         """Create a user with the provided credentials, and optionally set as an admin."""
@@ -32,13 +37,28 @@ class MatrixHelper:
 
     def restart_synapse(self):
         """Restart services."""
-        host.service_restart("snap.matrix-synapse")
+        host.service_restart(self.synapse_service)
         return True
 
     def restart(self):
         """Restart services."""
         self.restart_synapse()
         return True
+
+    def start_service(self, service):
+        """Start and enable the provided service, return run state."""
+        host.service(service, "enable")
+        host.service(service, "start")
+        return host.service_running(service)
+
+    def start_synapse(self):
+        """Start and enable synapse."""
+        synapse_running = self.start_service(self.synapse_service)
+        return synapse_running
+
+    def start_services(self):
+        """Configure and start services."""
+        self.start_synapse()
 
     def get_server_name(self):
         """Return the configured server name."""
@@ -153,7 +173,37 @@ class MatrixHelper:
             )
         if any_file_changed([self.homeserver_config]):
             self.restart_synapse()
-        return True
+            return True
+        return False
+
+    def render_appservice_irc_config(self):
+        """Render the configuration for Matrix synapse."""
+        if self.pgsql_configured():
+            templating.render(
+                "homeserver.yaml.j2",
+                self.homeserver_config,
+                {
+                    "db_host": self.kv.get("pgsql_host"),
+                    "db_port": self.kv.get("pgsql_port"),
+                    "db_database": self.kv.get("pgsql_db"),
+                    "db_user": self.kv.get("pgsql_user"),
+                    "db_password": self.kv.get("pgsql_pass"),
+                    "server_name": self.get_server_name(),
+                    "enable_tls": self.get_tls(),
+                },
+            )
+        if any_file_changed([self.homeserver_config]):
+            self.restart_synapse()
+            return True
+        return False
+
+    def render_configs(self):
+        """Render configuration for the homeserver and enabled bridges."""
+        self.render_synapse_config()
+        if self.charm_config.get("enable-irc"):
+            self.render_appservice_irc_config()
+        if self.charm_config.get("enable-slack"):
+            self.render_appservice_slack_config()
 
     def configure(self):
         """
@@ -162,6 +212,8 @@ class MatrixHelper:
         Verified correct snaps are installed, renders
         configuration files and restarts services as needed.
         """
-        self.render_synapse_config()
-
-        return True
+        self.render_configs()
+        if self.start_services():
+            hookenv.status_set("active", self.HEALTHY)
+        else:
+            hookenv.status_set("blocked", "Matrix services are not running.")

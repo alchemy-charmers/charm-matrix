@@ -15,7 +15,6 @@ from charms.reactive import (
 
 
 matrix = MatrixHelper()
-HEALTHY = "Matrix homeserver installed and configured."
 
 
 @when_not("snap.installed.matrix-synapse")
@@ -68,7 +67,7 @@ def remove_proxy():
     """Remove the haproxy configuration when the relation is removed."""
     hookenv.status_set("maintenance", "Removing reverse proxy relation")
     hookenv.log("Removing config for: {}".format(hookenv.remote_unit()))
-    hookenv.status_set("active", HEALTHY)
+    hookenv.status_set("active", matrix.HEALTHY)
     clear_flag("reverseproxy.configured")
 
 
@@ -96,7 +95,7 @@ def configure_proxy():
     interface = endpoint_from_name("reverseproxy")
     matrix.save_proxy_config(interface)
 
-    hookenv.status_set("active", HEALTHY)
+    hookenv.status_set("active", matrix.HEALTHY)
     set_flag("reverseproxy.configured")
 
 
@@ -112,5 +111,4 @@ def configure_matrix(reverseproxy, *args):
     hookenv.status_set("maintenance", "Configuring matrix")
     hookenv.log(("Configuring matrix"))
 
-    if matrix.configure():
-        hookenv.status_set("active", HEALTHY)
+    matrix.configure()
