@@ -20,3 +20,6 @@ repo-info
 
 # reports
 report/*
+
+# unit state DB
+*.db

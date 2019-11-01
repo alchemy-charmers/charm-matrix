@@ -1,4 +1,5 @@
 """Matrix helper class for reactive charm layer."""
+from charms.layer import snap
 from lib_layer_matrix import MatrixHelper
 from charmhelpers.core import hookenv
 from charms.reactive import (
@@ -21,24 +22,28 @@ HEALTHY = "Matrix homeserver installed and configured."
 def install_matrix_synapse():
     """Installs matrix synapse snap."""
     hookenv.status_set("maintenance", "Installing Matrix")
-    matrix.install_snap_synapse()
+    snap.install("matrix-synapse")
     hookenv.status_set("active", "Matrix Installed")
 
 
 @when_not("snap.installed.matrix-appservice-irc")
+@when("config.changed.enable-irc")
 def install_matrix_appservice_irc():
     """Installs matrix IRC appservice snap if enabled."""
-    hookenv.status_set("maintenance", "Installing Matrix IRC bridge")
-    matrix.install_snap_appservice_irc()
-    hookenv.status_set("active", "Matrix IRC bridge Installed")
+    if hookenv.config["enable-irc"]:
+        hookenv.status_set("maintenance", "Installing Matrix IRC bridge")
+        snap.install("matrix-appservice-irc")
+        hookenv.status_set("active", "Matrix IRC bridge Installed")
 
 
 @when_not("snap.installed.matrix-appservice-slack")
+@when("config.changed.enable-slack")
 def install_matrix_appservice_slack():
     """Installs matrix slack appservice snap if enabled."""
-    hookenv.status_set("maintenance", "Installing Matrix")
-    matrix.install_snap_appservice_slack()
-    hookenv.status_set("active", "Matrix Slack bridge Installed")
+    if hookenv.config["enable-slack"]:
+        hookenv.status_set("maintenance", "Installing Matrix")
+        snap.install("matrix-appservice-slack")
+        hookenv.status_set("active", "Matrix Slack bridge Installed")
 
 
 @when("pgsql.database.connected")

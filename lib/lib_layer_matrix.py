@@ -1,7 +1,6 @@
 import socket
 
 from charmhelpers.core import hookenv, host, templating, unitdata
-from charms.layer import snap
 from charms.reactive.helpers import any_file_changed
 
 # TODO: limits.conf file handle config
@@ -152,28 +151,6 @@ class MatrixHelper:
             self.restart_synapse()
         return True
 
-    def install_snap_synapse(self):
-        """Install the synapse snap."""
-        snap.install("matrix-synapse")
-
-    def install_snap_appservice_irc(self):
-        """Install the IRC appservice if enabled."""
-        if self.charm_config["enable-irc"]:
-            snap.install("matrix-appservice-irc")
-
-    def install_snap_appservice_slack(self):
-        """Install the Slack appservice if enabled."""
-        if self.charm_config["enable-slack"]:
-            snap.install("matrix-appservice-slack")
-
-    def upgrade_snaps(self):
-        """Install and upgrade snaps as required by enabled bridges."""
-        if self.charm_config["enable-irc"]:
-            snap.refresh("matrix-appservice-irc")
-        if self.charm_config["enable-slack"]:
-            snap.refresh("matrix-appservice-slack")
-        snap.refresh("matrix-synapse")
-
     def configure(self):
         """
         Configure Matrix.
@@ -181,7 +158,6 @@ class MatrixHelper:
         Verified correct snaps are installed, renders
         configuration files and restarts services as needed.
         """
-        self.upgrade_snaps()
         self.render_synapse_config()
 
         return True
