@@ -10,7 +10,6 @@ juju_repository = os.getenv("JUJU_REPOSITORY", ".").rstrip("/")
 series = [
     "xenial",
     "bionic",
-    "disco",
     pytest.param("eoan", marks=pytest.mark.xfail(reason="canary")),
 ]
 sources = [
@@ -60,7 +59,7 @@ async def test_matrix_deploy(model, series, source, request):
 
 
 @pytest.mark.deploy
-@pytest.mark.timeout(300)
+@pytest.mark.timeout(900)
 async def test_charm_upgrade(model, app):
     if app.name.endswith("local"):
         pytest.skip("No need to upgrade the local deploy")
@@ -80,7 +79,7 @@ async def test_charm_upgrade(model, app):
 
 
 @pytest.mark.deploy
-@pytest.mark.timeout(300)
+@pytest.mark.timeout(900)
 async def test_matrix_status(model, app):
     # Verifies status for all deployed series of the charm
     await model.block_until(lambda: app.status == "active")
@@ -89,11 +88,18 @@ async def test_matrix_status(model, app):
 
 
 # Tests
-async def test_example_action(app):
+async def test_register_user_action_fail(app):
     unit = app.units[0]
-    action = await unit.run_action("example-action")
+    action = await unit.run_action("register-user")
     action = await action.wait()
-    assert action.status == "completed"
+    assert action.status == "failed"
+
+
+async def test_register_set_password_fail(app):
+    unit = app.units[0]
+    action = await unit.run_action("set-password")
+    action = await action.wait()
+    assert action.status == "failed"
 
 
 async def test_run_command(app, jujutools):

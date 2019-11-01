@@ -1,6 +1,7 @@
-import pickle
-import juju
 import base64
+import pickle
+
+import juju
 
 # from juju.errors import JujuError
 
@@ -68,3 +69,71 @@ class JujuTools:
         cmd = "cat {}".format(path)
         result = await self.run_command(cmd, target)
         return result["Stdout"]
+
+    async def service_status(self, service, target):
+        """
+        Returns status of a service on target unit
+
+        :param service: Name of the service
+        :param target: Unit object or unit name string
+        """
+        cmd = "systemctl status {}".format(service)
+        result = await self.run_command(cmd, target)
+        return result
+
+    async def convert_config(self, config):
+        """
+        Converts config dictionary from get_config to one valid for set_config.
+        """
+        clean_config = {}
+        for key, value in config.items():
+            clean_config[key] = "{}".format(value["value"])
+        return clean_config
+
+    async def test_config(self, config, app, tests):
+        """
+        Verifies contents of files after a config change on an application.
+        Application configuration will be reset to the original value even if an
+        assertion fails.
+
+        :param config: Dictionary containing application configuration to set
+        :param app: The application to apply the config and verify files
+        :param tests: A dictionary of tests. With the following keys
+            path: path to the file to test
+            contains (optional): assert this value is in the contents of path
+            exclude (optional): assert this value is not in the contents of path
+        """
+        original_config = await self.convert_config(await app.get_config())
+        unit0 = app.units[0]
+        await app.set_config(config)
+        # Wait for config to apply
+        await self.model.block_until(lambda: unit0.agent_status == "executing")
+        await self.model.block_until(lambda: unit0.agent_status == "idle")
+        # Check the results
+        for unit in app.units:
+            for test in tests:
+                path = test.get("path")
+                contents = await self.file_contents(path, unit)
+                print("Checking: {}".format(path))
+                print("Contents: {}".format(contents))
+                try:
+                    expected_contents = test.get("contains", None)
+                    if expected_contents:
+                        assert expected_contents in contents
+                    excluded_contents = test.get("exclude", None)
+                    if excluded_contents:
+                        assert excluded_contents not in contents
+                except AssertionError:
+                    # Reset configuration
+                    await app.set_config(original_config)
+                    # Wait for config to apply
+                    await self.model.block_until(
+                        lambda: unit0.agent_status == "executing"
+                    )
+                    await self.model.block_until(lambda: unit0.agent_status == "idle")
+                    raise
+        # Reset configuration
+        await app.set_config(original_config)
+        # Wait for config to apply
+        await self.model.block_until(lambda: unit0.agent_status == "executing")
+        await self.model.block_until(lambda: unit0.agent_status == "idle")

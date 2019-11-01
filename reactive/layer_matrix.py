@@ -1,6 +1,6 @@
 """Matrix helper class for reactive charm layer."""
 from charms.layer import snap
-from lib_layer_matrix import MatrixHelper
+from lib_matrix import MatrixHelper
 from charmhelpers.core import hookenv
 from charms.reactive import (
     clear_flag,
@@ -101,9 +101,7 @@ def configure_proxy():
 
 
 @when_all("snap.installed.matrix-synapse", "pgsql.database.available")
-@when_any(
-    "config.changed", "pgsql.database.changed"
-)
+@when_any("config.changed", "pgsql.database.changed")
 def configure_matrix(reverseproxy, *args):
     """Upgrade and reconfigure matrix on configuration changes.
 
@@ -112,11 +110,7 @@ def configure_matrix(reverseproxy, *args):
     and services running.
     """
     hookenv.status_set("maintenance", "Configuring matrix")
-    hookenv.log(
-        ("Configuring matrix")
-    )
+    hookenv.log(("Configuring matrix"))
 
     if matrix.configure():
         hookenv.status_set("active", HEALTHY)
-
-

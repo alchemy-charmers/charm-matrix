@@ -1,9 +1,8 @@
 import imp
-
 import mock
 
 
-def test_set_password_action(matrix, monkeypatch):
+def test_set_password_action(matrix, mock_action_get, mock_action_set, mock_action_fail, mock_juju_unit, monkeypatch):
     mock_function = mock.Mock()
     monkeypatch.setattr(matrix, "set_password", mock_function)
     assert mock_function.call_count == 0
@@ -11,7 +10,7 @@ def test_set_password_action(matrix, monkeypatch):
     assert mock_function.call_count == 1
 
 
-def test_register_user_action(matrix, monkeypatch):
+def test_register_user_action(matrix, mock_action_get, mock_action_set, mock_action_fail, mock_juju_unit, monkeypatch):
     mock_function = mock.Mock()
     monkeypatch.setattr(matrix, "register_user", mock_function)
     assert mock_function.call_count == 0

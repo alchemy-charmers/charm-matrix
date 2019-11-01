@@ -14,6 +14,9 @@ from charms.reactive.helpers import any_file_changed
 
 
 class MatrixHelper:
+
+    homeserver_config = "/snap/matrix-synapse/homeserver.yaml"
+
     def __init__(self):
         """Load hookenv key/value store and charm configuration."""
         self.charm_config = hookenv.config()
@@ -25,7 +28,7 @@ class MatrixHelper:
 
     def register_user(self, user, password=None, admin=False):
         """Create a user with the provided credentials, and optionally set as an admin."""
-        return
+        return True
 
     def restart_synapse(self):
         """Restart services."""
@@ -34,7 +37,7 @@ class MatrixHelper:
 
     def restart(self):
         """Restart services."""
-        self.restart_synapse() 
+        self.restart_synapse()
         return True
 
     def get_server_name(self):
@@ -45,7 +48,7 @@ class MatrixHelper:
         else:
             fqdn = socket.getfqdn()
             return fqdn
-    
+
     def get_tls(self):
         """Return the configured TLS state."""
         configured_value = self.charm_config["enable-tls"]
@@ -60,7 +63,7 @@ class MatrixHelper:
         server_name = self.get_server_name()
         tls_enabled = self.get_tls()
 
-        if tls_enabled: 
+        if tls_enabled:
             port = 443
         else:
             port = 80
@@ -70,7 +73,7 @@ class MatrixHelper:
                 "mode": "http",
                 "external_port": port,
                 "internal_host": socket.getfqdn(),
-                "internal_port": 8008, 
+                "internal_port": 8008,
                 "subdomain": server_name,
             }
         ]
@@ -137,7 +140,7 @@ class MatrixHelper:
         if self.pgsql_configured():
             templating.render(
                 "homeserver.yaml.j2",
-                self.synapse_config,
+                self.homeserver_config,
                 {
                     "db_host": self.kv.get("pgsql_host"),
                     "db_port": self.kv.get("pgsql_port"),
@@ -145,9 +148,10 @@ class MatrixHelper:
                     "db_user": self.kv.get("pgsql_user"),
                     "db_password": self.kv.get("pgsql_pass"),
                     "server_name": self.get_server_name(),
+                    "enable_tls": self.get_tls(),
                 },
             )
-        if any_file_changed(["/snap/matrix-synapse/common/homeserver.yaml"]):
+        if any_file_changed([self.homeserver_config]):
             self.restart_synapse()
         return True
 
