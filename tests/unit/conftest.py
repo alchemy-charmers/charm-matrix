@@ -30,6 +30,20 @@ def mock_host_service(monkeypatch):
 
 
 @pytest.fixture
+def mock_lsb_release(monkeypatch):
+    """Mock lsb_release function charmhelpers."""
+    def mocked_lsb_release():
+        return {
+            'DISTRIB_CODENAME': 'xenial'
+        }
+
+    mock_lsb = mock.Mock()
+    mock_lsb.side_effect = mocked_lsb_release
+    monkeypatch.setattr("lib_matrix.host.lsb_release", mock_lsb)
+    return mock_lsb
+
+
+@pytest.fixture
 def mock_psycopg2(monkeypatch):
     """Mock useful psycopg2 calls."""
     mock_execute = mock.Mock()
@@ -168,6 +182,7 @@ def matrix(
     tmpdir,
     mock_hookenv_config,
     mock_charm_dir,
+    mock_lsb_release,
     mock_host_service,
     mock_template,
     mock_socket,
