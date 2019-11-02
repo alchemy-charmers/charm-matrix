@@ -10,6 +10,9 @@ includes:
   - interface:reverseproxy
   - interface:pgsql
 options:
+  basic:
+    python_packages:
+      - signedjson
   snap:
     matrix-synapse:
       channel: stable

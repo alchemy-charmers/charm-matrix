@@ -5,8 +5,7 @@ import pytest
 
 from charmhelpers.core import unitdata
 
-# If layer options are used, add this to pihole
-# and import layer in lib_matrix
+
 @pytest.fixture
 def mock_layers(monkeypatch):
     """Mock layer configuration."""
@@ -24,17 +23,35 @@ def mock_layers(monkeypatch):
         else:
             return None
 
-    monkeypatch.setattr("lib_matrix.layer.options", options)
+    monkeypatch.setattr("lib_matrix.options", options)
+    monkeypatch.setattr("lib_matrix.snap", mock.Mock())
+    monkeypatch.setattr("charms.layer", mock.Mock())
+    monkeypatch.setattr("charms.layer.snap", mock.Mock())
+
+
+@pytest.fixture
+def mock_host_service(monkeypatch):
+    """Mock host import on lib_matrix."""
+    mock_service = mock.Mock()
+    monkeypatch.setattr("lib_matrix.host.service", mock_service)
+    return mock_service
+
+
+@pytest.fixture
+def mock_check_call(monkeypatch):
+    """Mock subprocess check_call on lib_matrix."""
+    mock_call = mock.Mock()
+    monkeypatch.setattr("lib_matrix.check_call", mock_call)
+    return mock_call
 
 
 @pytest.fixture
 def mock_action_get(monkeypatch):
     """Mock the action_get function."""
     def mock_action_get(name):
-        return 'blah'
+        return "blah"
 
-    monkeypatch.setattr('charmhelpers.core.hookenv.action_get',
-                        mock_action_get)
+    monkeypatch.setattr("charmhelpers.core.hookenv.action_get", mock_action_get)
     return mock_action_get
 
 
@@ -42,8 +59,7 @@ def mock_action_get(monkeypatch):
 def mock_action_set(monkeypatch):
     """Mock the action_set function."""
     mock_action_set = mock.Mock()
-    monkeypatch.setattr('charmhelpers.core.hookenv.action_set',
-                        mock_action_set)
+    monkeypatch.setattr("charmhelpers.core.hookenv.action_set", mock_action_set)
     return mock_action_set
 
 
@@ -51,8 +67,7 @@ def mock_action_set(monkeypatch):
 def mock_action_fail(monkeypatch):
     """Mock the action_fail function."""
     mock_action_fail = mock.Mock()
-    monkeypatch.setattr('charmhelpers.core.hookenv.action_fail',
-                        mock_action_fail)
+    monkeypatch.setattr("charmhelpers.core.hookenv.action_fail", mock_action_fail)
     return mock_action_fail
 
 
@@ -60,10 +75,9 @@ def mock_action_fail(monkeypatch):
 def mock_juju_unit(monkeypatch):
     """Mock calls to retrieve the local unit information."""
     def mock_local_unit():
-        return 'mocked'
+        return "mocked"
 
-    monkeypatch.setattr('charmhelpers.core.hookenv.local_unit',
-                        mock_local_unit)
+    monkeypatch.setattr("charmhelpers.core.hookenv.local_unit", mock_local_unit)
     return mock_local_unit
 
 
@@ -122,14 +136,14 @@ def mock_socket(monkeypatch):
 
 
 @pytest.fixture
-def mock_matrix_start_services(monkeypatch):
-    """Mock start_services function in helper library."""
-    monkeypatch.setattr("lib_matrix.MatrixHelper.start_services", mock.Mock())
-
-
-@pytest.fixture
 def matrix(
-    tmpdir, mock_hookenv_config, mock_charm_dir, mock_template, mock_socket, monkeypatch
+    tmpdir,
+    mock_hookenv_config,
+    mock_charm_dir,
+    mock_template,
+    mock_socket,
+    mock_layers,
+    monkeypatch,
 ):
     """Mock the Matrix helper library."""
     from lib_matrix import MatrixHelper

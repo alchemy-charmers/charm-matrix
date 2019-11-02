@@ -47,10 +47,6 @@ options:
     type: boolean
     default: false
     description: "When true, enable the matrix IRC appservice to bridge IRC to Matrix"
-  enable-slack:
-    type: boolean
-    default: false
-    description: "When true, enable the matrix IRC appservice to bridge Slack to Matrix"
   require-auth-profile-requests:
     type: boolean
     default: true

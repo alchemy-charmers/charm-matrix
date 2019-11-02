@@ -1,15 +1,19 @@
 """Helper class for configuring Matrix."""
 import socket
+import random
+import string
+from os import path
+from subprocess import check_call
 
 from charmhelpers.core import hookenv, host, templating, unitdata
 from charms.reactive.helpers import any_file_changed
+from signedjson.key import generate_signing_key, write_signing_keys
+
+from charms.layer import snap
+
 
 # TODO: limits.conf file handle config
 # TODO: template configuration
-# TODO: handle reverse proxy relation
-# TODO: handle DB relation
-# TODO: handle apt sources and key
-# TODO: handle package install
 # TODO: handle federation bridges install
 # TODO: libjemalloc
 
@@ -18,7 +22,16 @@ class MatrixHelper:
     """Helper class for installing, configuring and managing services for Matrix."""
 
     homeserver_config = "/var/snap/matrix-synapse/common/homeserver.yaml"
+
+    synapse_snap = "matrix-synapse"
+    appservice_irc_snap = "matrix-appservice-irc"
+    appservice_slack_snap = "matrix-appservice-slack"
+
     synapse_service = "snap.matrix-synapse.matrix-synapse"
+    appservice_irc_service = "snap.matrix-appservice-irc.matrix-appservice-irc"
+    appservice_slack_service = "snap.matrix-appservice-slack.matrix-appservice-slack"
+
+    synapse_conf_dir = "/var/snap/matrix-synapse/common/"
 
     HEALTHY = "Matrix homeserver installed and configured."
 
@@ -26,6 +39,24 @@ class MatrixHelper:
         """Load hookenv key/value store and charm configuration."""
         self.charm_config = hookenv.config()
         self.kv = unitdata.kv()
+
+    def random_string(self, length):
+        """Implement the random_string function from the synapse stringutils package."""
+        return "".join(
+            random.SystemRandom().choice(string.ascii_letters) for _ in range(length)
+        )
+
+    def get_synapse_signing_key(self):
+        """Return the path of the synapse signing key, generating it if missing."""
+        key_path = "{}/{}.signing.key".format(
+            self.synapse_conf_dir, self.get_server_name()
+        )
+        if not path.exists(key_path):
+            key_id = "a_" + self.random_string(4)
+            key_content = generate_signing_key(key_id)
+            with open(key_path, "w+") as key_file:
+                write_signing_keys(key_file, (key_content,))
+        return key_path
 
     def set_password(self, user, password):
         """Set the password for a provided synapse user."""
@@ -47,8 +78,8 @@ class MatrixHelper:
 
     def start_service(self, service):
         """Start and enable the provided service, return run state."""
-        host.service("enable", self.synapse_service)
         host.service("start", self.synapse_service)
+        host.service("enable", self.synapse_service)
         return host.service_running(service)
 
     def start_synapse(self):
@@ -56,9 +87,31 @@ class MatrixHelper:
         synapse_running = self.start_service(self.synapse_service)
         return synapse_running
 
+    def start_appservice_irc(self):
+        """Start and enable the IRC bridge."""
+        if self.charm_config["enable-irc"]:
+            irc_running = self.start_service(self.appservice_irc_service)
+            return irc_running
+        # this might seem silly, but if IRC is disabled the correct or 'True' state is that
+        # the service is not running, so return True to indicate all is well
+        return True
+
+    def start_appservice_slack(self):
+        """Start and enable the Slack bridge."""
+        if self.charm_config["enable-slack"]:
+            slack_running = self.start_service(self.appservice_slack_service)
+            return slack_running
+        # this might also seem silly, but if Slack is disabled the correct or 'True' state is that
+        # the service is not running, so return True to indicate all is well
+        return True
+
     def start_services(self):
         """Configure and start services."""
-        self.start_synapse()
+        result = True
+        result = self.start_synapse() and result
+        result = self.start_appservice_irc() and result
+        result = self.start_appservice_slack() and result
+        return result
 
     def get_server_name(self):
         """Return the configured server name."""
@@ -74,12 +127,8 @@ class MatrixHelper:
         server_name = self.get_server_name()
         tls = self.get_tls()
         if tls:
-            return "https://{}".format(
-                server_name
-            )
-        return "http://{}".format(
-            server_name
-        )
+            return "https://{}".format(server_name)
+        return "http://{}".format(server_name)
 
     def get_tls(self):
         """Return the configured TLS state."""
@@ -91,12 +140,26 @@ class MatrixHelper:
     def get_domain_whitelist(self):
         """Return dict of domains to whitelist based on comma separated charm config."""
         whitelist = self.charm_config["federation-domain-whitelist"]
-        return whitelist.split(",")
+        return list(filter(None, whitelist.split(",")))
 
     def get_federation_iprange_blacklist(self):
         """Return dict of ip ranges to blacklist based on comma separated charm config."""
         blacklist = self.charm_config["federation-ip-range-blacklist"]
-        return blacklist.split(",")
+        return list(filter(None, blacklist.split(",")))
+
+    def hash_password(self, password):
+        """Hash password in a matrix-compatible way."""
+        cmd = [
+            "snap",
+            "run",
+            "{}.hash_password".format(self.appservice_irc_snap),
+            "-c",
+            "/var/snap/{}/common/config.yaml".format(self.appservice_irc_snap),
+            "-p",
+            password,
+        ]
+        result = check_call(cmd)
+        return result
 
     def configure_proxy(self, proxy):
         """Configure Synapse for operation behind a reverse proxy."""
@@ -134,8 +197,7 @@ class MatrixHelper:
             )
             return True
         hookenv.log(
-            "PostgreSQL is not yet configured in the charm KV store",
-            hookenv.WARNING,
+            "PostgreSQL is not yet configured in the charm KV store", hookenv.WARNING
         )
         return False
 
@@ -149,7 +211,9 @@ class MatrixHelper:
 
     def save_pgsql_conf(self, db):
         """Configure Matrix with knowledge of a related PostgreSQL endpoint."""
-        hookenv.log("Request to save PostgreSQL configuration: {}".format(db), hookenv.DEBUG)
+        hookenv.log(
+            "Request to save PostgreSQL configuration: {}".format(db), hookenv.DEBUG
+        )
         if db:
             hookenv.log(
                 "Saving related PostgreSQL database config: {}".format(db.master),
@@ -172,6 +236,9 @@ class MatrixHelper:
                 "homeserver.yaml.j2",
                 self.homeserver_config,
                 {
+                    "conf_dir": self.synapse_conf_dir,
+                    "signing_key": self.get_synapse_signing_key(),
+                    "pgsql_configured": self.pgsql_configured(),
                     "pgsql_host": self.kv.get("pgsql_host"),
                     "pgsql_port": self.kv.get("pgsql_port"),
                     "pgsql_db": self.kv.get("pgsql_db"),
@@ -182,15 +249,25 @@ class MatrixHelper:
                     "enable_tls": self.get_tls(),
                     "enable_search": self.charm_config["enable-search"],
                     "enable_user_directory": self.charm_config["enable-user-directory"],
-                    "enable_room_list_search": self.charm_config["enable-room-list-search"],
+                    "enable_room_list_search": self.charm_config[
+                        "enable-room-list-search"
+                    ],
                     "enable_registration": self.charm_config["enable-registration"],
                     "use_presence": self.charm_config["track-presence"],
-                    "require_auth_for_profile_requests": self.charm_config["require-auth-profile-requests"],
+                    "require_auth_for_profile_requests": self.charm_config[
+                        "require-auth-profile-requests"
+                    ],
                     "default_room_version": self.charm_config["default-room-version"],
-                    "block_non_admin_invites": not bool(self.charm_config["enable-non-admin-invites"]),
+                    "block_non_admin_invites": not bool(
+                        self.charm_config["enable-non-admin-invites"]
+                    ),
                     "report_stats": self.charm_config["enable-reporting-stats"],
-                    "allow_public_rooms_without_auth": self.charm_config["allow-public-rooms-unauthed"],
-                    "allow_public_rooms_over_federation": self.charm_config["allow-public-rooms-federated"],
+                    "allow_public_rooms_without_auth": self.charm_config[
+                        "allow-public-rooms-unauthed"
+                    ],
+                    "allow_public_rooms_over_federation": self.charm_config[
+                        "allow-public-rooms-federated"
+                    ],
                     "federation_domain_whitelist": self.get_domain_whitelist(),
                     "federation_ip_range_blacklist": self.get_federation_iprange_blacklist(),
                 },
@@ -226,6 +303,32 @@ class MatrixHelper:
             return True
         return False
 
+    def render_appservice_slack_config(self):
+        """Render the configuration for Matrix synapse."""
+        if self.pgsql_configured():
+            templating.render(
+                "homeserver.yaml.j2",
+                self.homeserver_config,
+                {
+                    "db_host": self.kv.get("pgsql_host"),
+                    "db_port": self.kv.get("pgsql_port"),
+                    "db_database": self.kv.get("pgsql_db"),
+                    "db_user": self.kv.get("pgsql_user"),
+                    "db_password": self.kv.get("pgsql_pass"),
+                    "server_name": self.get_server_name(),
+                    "enable_tls": self.get_tls(),
+                },
+            )
+        else:
+            hookenv.log(
+                "Skipped rendering synapse configuration due to unconfigured pgsql",
+                hookenv.DEBUG,
+            )
+        if any_file_changed([self.homeserver_config]):
+            self.restart_synapse()
+            return True
+        return False
+
     def render_configs(self):
         """Render configuration for the homeserver and enabled bridges."""
         self.render_synapse_config()
@@ -234,6 +337,38 @@ class MatrixHelper:
         if self.charm_config.get("enable-slack"):
             self.render_appservice_slack_config()
 
+    def check_snap_installed(self, snapname):
+        """Verify a snap is installed."""
+        return snap.is_installed(snapname)
+
+    def install_snap(self, snapname):
+        """Install specific snap."""
+        snap.install(snapname)
+
+    def remove_snap(self, snapname):
+        """Remove specific snap."""
+        snap.remove(snapname)
+
+    def install_snaps(self):
+        """Install snaps for configured briges."""
+        result = True
+        if not self.check_snap_installed(self.synapse_snap):
+            hookenv.log("Installing {} snap".format(self.synapse_snap), hookenv.DEBUG)
+            result = self.install_snap(self.synapse_snap) and result
+        irc_installed = self.check_snap_installed(self.appservice_irc_snap)
+        if self.charm_config.get("enable-irc"):
+            if not irc_installed:
+                hookenv.log(
+                    "Installing {} snap".format(self.appservice_irc_snap), hookenv.DEBUG
+                )
+                result = self.install_snap(self.appservice_irc_snap) and result
+        elif irc_installed:
+            self.remove_snap(self.appservice_irc_snap)
+        # TODO: additional bridges
+        if result:
+            hookenv.log("Snaps are installed.", hookenv.DEBUG)
+        return result
+
     def configure(self):
         """
         Configure Matrix.
@@ -241,8 +376,16 @@ class MatrixHelper:
         Verified correct snaps are installed, renders
         configuration files and restarts services as needed.
         """
-        self.render_configs()
-        if self.start_services():
-            hookenv.status_set("active", self.HEALTHY)
+        if self.install_snaps:
+            self.render_configs()
+            if self.start_services():
+                hookenv.status_set("active", self.HEALTHY)
+                return True
+            else:
+                hookenv.status_set("blocked", "Matrix services are not running.")
         else:
-            hookenv.status_set("blocked", "Matrix services are not running.")
+            hookenv.status_set(
+                "blocked",
+                "Snaps are not installable. Check snap store accessibility or that resources are uploaded.",
+            )
+        return False

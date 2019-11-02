@@ -6,7 +6,6 @@ Matrix
 
 This charm will deploy a Matrix homeserver, running synapse, and optionally supporting the following bridges -
 * matrix-appservice-irc
-* matrix-appservice-slack
 
 Deployment
 ==========
@@ -29,10 +28,15 @@ These are documented in the `config.yaml` file, however the following are the mo
 * `server-name` controls the FQDN of the server used in federation and other client operations.
 * `shared-secret` allows you to provide a shared secret which is used when registering users, if enabled.
 * `enable-irc` installs and configures the IRC bridge when set to true.
-* `enable-slack` installs and configures the Slack bridge when set to true.
 
 Do ensure you review the remainder of the configuration items, as they control security and privacy related aspects of Synapse, and the
 defaults might not suit your needs, erring on the side of privacy.
+
+TODO
+====
+
+* matrix-appservice-slack support (WIP)
+* matrix-puppet-slack support
 
 Author
 ======

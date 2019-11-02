@@ -88,7 +88,6 @@ def wait_pgsql():
     hookenv.status_set("blocked", "Waiting for PostgreSQL database")
 
 
-@when("snap.installed.matrix-synapse")
 @when_not("pgsql.database.available")
 def missing_db_relation():
     """Complains if the PostgreSQL relation is missing."""

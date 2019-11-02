@@ -1,3 +1,4 @@
+"""Function tests for the Matrix charm."""
 import os
 import pytest
 import subprocess
@@ -21,22 +22,26 @@ sources = [
 # Custom fixtures
 @pytest.fixture(params=series)
 def series(request):
+    """Provide fixture for the Ubuntu series currently in test."""
     return request.param
 
 
 @pytest.fixture(params=sources, ids=[s[0] for s in sources])
 def source(request):
+    """Provide fixture for the charm install method (local or charmstore) for the current test."""
     return request.param
 
 
 @pytest.fixture
 async def app(model, series, source):
+    """Fixture for the current juju application for the running test."""
     app_name = "matrix-{}-{}".format(series, source[0])
     return await model._wait_for_new("application", app_name)
 
 
 @pytest.mark.deploy
 async def test_matrix_deploy(model, series, source, request):
+    """Perform initial deployment of the application's charms."""
     # Starts a deploy for each series
     # Using subprocess b/c libjuju fails with JAAS
     # https://github.com/juju/python-libjuju/issues/221
@@ -60,6 +65,7 @@ async def test_matrix_deploy(model, series, source, request):
 
 @pytest.mark.deploy
 async def test_postgresql_deploy(model, series, request):
+    """Deploy PostgreSQL from the charm store for testing Matrix."""
     application_name = "matrix-pgsql-{}".format(series)
     cmd = [
         "juju",
@@ -80,21 +86,27 @@ async def test_postgresql_deploy(model, series, request):
 
 @pytest.mark.deploy
 async def test_matrix_snap_upload(model, series, source, request):
+    """Upload snap resources for Matrix and appservice bridges so install can be tested."""
     application_name = "matrix-{}-{}".format(series, source[0])
-    cmd = [
-        "juju",
-        "attach-resource",
-        "-m",
-        model.info.name,
-        application_name,
-        "matrix-synapse=snaps/matrix-synapse.snap"
-    ]
-    subprocess.check_call(cmd)
+    for snap in [
+            'matrix-synapse',
+            'matrix-appservice-irc'
+    ]:
+        cmd = [
+            "juju",
+            "attach-resource",
+            "-m",
+            model.info.name,
+            application_name,
+            "{0}=snaps/{0}.snap".format(snap)
+        ]
+        subprocess.check_call(cmd)
 
 
 @pytest.mark.timeout(300)
 @pytest.mark.deploy
 async def test_charm_upgrade(model, app):
+    """Test upgrading from the charmstore version to the local version."""
     if app.name.endswith("local"):
         pytest.skip("No need to upgrade the local deploy")
     unit = app.units[0]
@@ -115,6 +127,7 @@ async def test_charm_upgrade(model, app):
 @pytest.mark.timeout(600)
 @pytest.mark.deploy
 async def test_matrix_status(model, app):
+    """Await the status of each application to enter expected state."""
     # Verifies status for all deployed series of the charm
     await model.block_until(lambda: app.status == "blocked")
     unit = app.units[0]
@@ -127,9 +140,9 @@ async def test_pgsql_relate(model, series, app, request):
     """Test relating PostgreSQL to GitLab."""
     application_name = "matrix-pgsql-{}".format(series)
     sql = model.applications[application_name]
-    await model.add_relation(                                                                                                                
+    await model.add_relation(
         "{}:pgsql".format(app.name), "{}:db-admin".format(application_name)
-    )                                                                                                                                        
+    )
     await model.block_until(lambda: sql.status == "active" or sql.status == "error")
     await model.block_until(lambda: app.status == "active" or app.status == "error")
     assert sql.status != "error"
@@ -138,6 +151,7 @@ async def test_pgsql_relate(model, series, app, request):
 
 # Tests
 async def test_register_user_action_fail(app):
+    """Test the failure state of the user registration action."""
     unit = app.units[0]
     action = await unit.run_action("register-user")
     action = await action.wait()
@@ -145,6 +159,7 @@ async def test_register_user_action_fail(app):
 
 
 async def test_register_set_password_fail(app):
+    """Test the failure state of the password set action."""
     unit = app.units[0]
     action = await unit.run_action("set-password")
     action = await action.wait()
@@ -152,6 +167,7 @@ async def test_register_set_password_fail(app):
 
 
 async def test_run_command(app, jujutools):
+    """Test running a command on a unit for the application in test."""
     unit = app.units[0]
     cmd = "hostname --all-ip-addresses"
     results = await jujutools.run_command(cmd, unit)
@@ -160,6 +176,7 @@ async def test_run_command(app, jujutools):
 
 
 async def test_file_stat(app, jujutools):
+    """Test retrieving a known file from the deployed unit."""
     unit = app.units[0]
     path = "/var/lib/juju/agents/unit-{}/charm/metadata.yaml".format(
         unit.entity_id.replace("/", "-")
