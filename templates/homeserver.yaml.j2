@@ -53,7 +53,6 @@ database:
   args:
     database: "{{ conf_dir }}/homeserver.db"
 {% endif %}
-log_config: "{{ conf_dir }}/{{ server_name }}.log.config"
 media_store_path: "{{ conf_dir }}/media_store"
 uploads_path: "{{ conf_dir }}/uploads"
 enable_registration: {{ enable_registration }}

@@ -7,41 +7,69 @@ from charmhelpers.core import unitdata
 
 
 @pytest.fixture
-def mock_layers(monkeypatch):
-    """Mock layer configuration."""
-    import sys
-
-    sys.modules["charms.layer"] = mock.Mock()
-    sys.modules["reactive"] = mock.Mock()
-    # Mock any functions in layers that need to be mocked here
-
-    def options(layer):
-        # mock options for layers here
-        if layer == "example-layer":
-            options = {"port": 9999}
-            return options
-        else:
-            return None
-
-    monkeypatch.setattr("lib_matrix.options", options)
-    monkeypatch.setattr("lib_matrix.snap", mock.Mock())
-    monkeypatch.setattr("charms.layer", mock.Mock())
+def mock_snap(monkeypatch):
+    """Mock snap layer."""
+    monkeypatch.syspath_prepend(".")
     monkeypatch.setattr("charms.layer.snap", mock.Mock())
 
 
 @pytest.fixture
 def mock_host_service(monkeypatch):
     """Mock host import on lib_matrix."""
+    def mocked_service(action, name):
+        print("Called {} on {}".format(
+            action,
+            name
+        ))
+        return True
+
     mock_service = mock.Mock()
+    mock_service.side_effect = mocked_service
     monkeypatch.setattr("lib_matrix.host.service", mock_service)
     return mock_service
 
 
 @pytest.fixture
-def mock_check_call(monkeypatch):
-    """Mock subprocess check_call on lib_matrix."""
+def mock_psycopg2(monkeypatch):
+    """Mock useful psycopg2 calls."""
+    mock_execute = mock.Mock()
+    mock_module = mock.Mock()
+    mock_connect = mock.Mock()
+
+    def mocked_execute(self, query, vars=None):
+        print(query)
+        return True
+
+    class Cursor():
+        def execute(self, query, vals=None):
+            return True
+
+    class Connection:
+        def cursor(self):
+            return Cursor()
+
+    def mocked_connect():
+        return Connection()
+
+    mock_connect.side_effect = mocked_connect
+    mock_execute.side_effect = mocked_execute
+    monkeypatch.setattr("lib_matrix.psycopg2", mock_module)
+    monkeypatch.setattr("lib_matrix.psycopg2.connect", mock_connect)
+    monkeypatch.setattr("lib_matrix.psycopg2.Cursor", Cursor())
+    monkeypatch.setattr("lib_matrix.psycopg2.Cursor.execute", mock_execute)
+
+    return mock_module
+
+
+@pytest.fixture
+def mock_check_output(monkeypatch):
+    """Mock subprocess check_output on lib_matrix."""
+    def mocked_check_output(command):
+        return 'mocked-output'
+
     mock_call = mock.Mock()
-    monkeypatch.setattr("lib_matrix.check_call", mock_call)
+    mock_call.side_effect = mocked_check_output
+    monkeypatch.setattr("lib_matrix.check_output", mock_call)
     return mock_call
 
 
@@ -140,9 +168,10 @@ def matrix(
     tmpdir,
     mock_hookenv_config,
     mock_charm_dir,
+    mock_host_service,
     mock_template,
     mock_socket,
-    mock_layers,
+    mock_snap,
     monkeypatch,
 ):
     """Mock the Matrix helper library."""
@@ -153,6 +182,8 @@ def matrix(
     # Example config file patching
     homeserver_file = tmpdir.join("homeserver.yaml")
     helper.homeserver_config = homeserver_file.strpath
+    synapse_signing_key_file = tmpdir.join("signing.key")
+    helper.synapse_signing_key_file = synapse_signing_key_file.strpath
 
     # Any other functions that load helper will get this version
     monkeypatch.setattr("lib_matrix.MatrixHelper", lambda: helper)

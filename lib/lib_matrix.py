@@ -2,8 +2,10 @@
 import socket
 import random
 import string
+
+import psycopg2
 from os import path
-from subprocess import check_call
+from subprocess import check_output
 
 from charmhelpers.core import hookenv, host, templating, unitdata
 from charms.reactive.helpers import any_file_changed
@@ -30,8 +32,8 @@ class MatrixHelper:
     synapse_service = "snap.matrix-synapse.matrix-synapse"
     appservice_irc_service = "snap.matrix-appservice-irc.matrix-appservice-irc"
     appservice_slack_service = "snap.matrix-appservice-slack.matrix-appservice-slack"
-
     synapse_conf_dir = "/var/snap/matrix-synapse/common/"
+    synapse_signing_key_file = None
 
     HEALTHY = "Matrix homeserver installed and configured."
 
@@ -39,6 +41,58 @@ class MatrixHelper:
         """Load hookenv key/value store and charm configuration."""
         self.charm_config = hookenv.config()
         self.kv = unitdata.kv()
+        if not self.synapse_signing_key_file:
+            self.synapse_signing_key_file = "{}/{}.signing.key".format(
+                self.synapse_conf_dir, self.get_server_name()
+            )
+
+    def hash_password(self, password):
+        """Hash password using the synapse hash_password tool."""
+        cmd = [
+            "snap",
+            "run",
+            "{}.hash-password".format(self.synapse_snap),
+            "-c",
+            "/var/snap/{}/common/config.yaml".format(self.synapse_snap),
+            "-p",
+            "testpassword",
+        ]
+        return check_output(cmd)
+
+    def set_password(self, user, password):
+        """Set the password for a provided synapse user."""
+        return True
+
+    def register_user(self, user, password=None, admin=False):
+        """Create a user with the provided credentials, and optionally set as an admin."""
+        return True
+
+    def pgsql_query(self, query, values=None):
+        """Execute the provided query against the related database."""
+        if self.pgsql_configured():
+            connection = psycopg2.connect(
+                host=self.kv.get("pgsql_host"),
+                port=self.kv.get("pgsql_port"),
+                database=self.kv.get("pgsql_db"),
+                user=self.kv.get("pgsql_user"),
+                password=self.kv.get("pgsql_pass"),
+            )
+            cursor = connection.cursor()
+            try:
+                result = cursor.execute(query, vars=values)
+            except psycopg2.Error as e:
+                hookenv.log(
+                    "Error {} from PostgreSQL when executing query {}".format(
+                        e.diag.message_primary, query
+                    )
+                )
+                pass
+            else:
+                if result is None:
+                    return True
+                else:
+                    return result
+        return False
 
     def random_string(self, length):
         """Implement the random_string function from the synapse stringutils package."""
@@ -48,23 +102,12 @@ class MatrixHelper:
 
     def get_synapse_signing_key(self):
         """Return the path of the synapse signing key, generating it if missing."""
-        key_path = "{}/{}.signing.key".format(
-            self.synapse_conf_dir, self.get_server_name()
-        )
-        if not path.exists(key_path):
+        if not path.exists(self.synapse_signing_key_file):
             key_id = "a_" + self.random_string(4)
             key_content = generate_signing_key(key_id)
-            with open(key_path, "w+") as key_file:
+            with open(self.synapse_signing_key_file, "w+") as key_file:
                 write_signing_keys(key_file, (key_content,))
-        return key_path
-
-    def set_password(self, user, password):
-        """Set the password for a provided synapse user."""
-        return True
-
-    def register_user(self, user, password=None, admin=False):
-        """Create a user with the provided credentials, and optionally set as an admin."""
-        return True
+        return self.synapse_signing_key_file
 
     def restart_synapse(self):
         """Restart services."""
@@ -89,7 +132,7 @@ class MatrixHelper:
 
     def start_appservice_irc(self):
         """Start and enable the IRC bridge."""
-        if self.charm_config["enable-irc"]:
+        if self.charm_config.get("enable-irc"):
             irc_running = self.start_service(self.appservice_irc_service)
             return irc_running
         # this might seem silly, but if IRC is disabled the correct or 'True' state is that
@@ -98,7 +141,7 @@ class MatrixHelper:
 
     def start_appservice_slack(self):
         """Start and enable the Slack bridge."""
-        if self.charm_config["enable-slack"]:
+        if self.charm_config.get("enable-slack"):
             slack_running = self.start_service(self.appservice_slack_service)
             return slack_running
         # this might also seem silly, but if Slack is disabled the correct or 'True' state is that
@@ -146,20 +189,6 @@ class MatrixHelper:
         """Return dict of ip ranges to blacklist based on comma separated charm config."""
         blacklist = self.charm_config["federation-ip-range-blacklist"]
         return list(filter(None, blacklist.split(",")))
-
-    def hash_password(self, password):
-        """Hash password in a matrix-compatible way."""
-        cmd = [
-            "snap",
-            "run",
-            "{}.hash_password".format(self.appservice_irc_snap),
-            "-c",
-            "/var/snap/{}/common/config.yaml".format(self.appservice_irc_snap),
-            "-p",
-            password,
-        ]
-        result = check_call(cmd)
-        return result
 
     def configure_proxy(self, proxy):
         """Configure Synapse for operation behind a reverse proxy."""
@@ -212,13 +241,11 @@ class MatrixHelper:
     def save_pgsql_conf(self, db):
         """Configure Matrix with knowledge of a related PostgreSQL endpoint."""
         hookenv.log(
-            "Request to save PostgreSQL configuration: {}".format(db), hookenv.DEBUG
+            "Checking related DB information before saving PostgreSQL configuration",
+            hookenv.DEBUG,
         )
         if db:
-            hookenv.log(
-                "Saving related PostgreSQL database config: {}".format(db.master),
-                hookenv.DEBUG,
-            )
+            hookenv.log("Saving related PostgreSQL database config", hookenv.DEBUG)
             self.kv.set("pgsql_host", db.master.host)
             self.kv.set("pgsql_port", db.master.port)
             self.kv.set("pgsql_db", db.master.dbname)

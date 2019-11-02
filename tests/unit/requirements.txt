@@ -5,3 +5,4 @@ pytest
 pytest-cov
 pytest-html
 signedjson
+psycopg2

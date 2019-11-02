@@ -20,41 +20,42 @@ def test_matrix_kv(matrix):
     assert isinstance(matrix.kv, unitdata.Storage)
 
 
-def test_set_password(matrix, mock_check_call):
+def test_set_password(matrix, mock_check_output, mock_psycopg2):
     """Test setting the password for a provided synapse user."""
     matrix.set_password("testuser", "testpassword")
-    assert mock_check_call.called_with(
+    assert mock_check_output.called_with(
         [
             "snap",
             "run",
-            "{}.hash_password".format(matrix.appservice_irc_snap),
+            "{}.hash_password".format(matrix.synapse_snap),
             "-c",
-            "/var/snap/{}/common/config.yaml".format(matrix.appservice_irc_snap),
+            "/var/snap/{}/common/config.yaml".format(matrix.synapse_snap),
             "-p",
             "testpassword",
         ]
     )
-    assert matrix.pgsql_query.called_with(
-        "UPDATE users SET password_hash='testhash' WHEREname='testuser';"
+    assert mock_psycopg2.Cursor.execute.called_with(
+        "UPDATE users SET password_hash='testhash' WHERE name='testuser';"
     )
 
 
-def test_register_user(matrix, mock_check_call):
+def test_register_user(matrix, mock_check_output, mock_psycopg2):
     """Test creating a user with the provided credentials, with and without setting admin."""
     matrix.register_user("testuser", "testpassword", admin=True)
-    assert mock_check_call.called_with(
+    assert mock_check_output.called_with(
         [
             "snap",
             "run",
-            "{}.hash_password".format(matrix.appservice_irc_snap),
+            "{}.hash-password".format(matrix.appservice_irc_snap),
             "-c",
             "/var/snap/{}/common/config.yaml".format(matrix.appservice_irc_snap),
             "-p",
             "testpassword",
         ]
     )
-    assert matrix.pgsql_query.called_with(
-        "INSERT INTO users (name, password, admin) VALUES ('testuser', 'testpassword', True);"
+    assert mock_psycopg2.Cursor.execute.called_with(
+        "INSERT INTO users (name, password, admin) VALUES (%s, %s, %s);",
+        "('testuser','testpassword',True)"
     )
 
 
@@ -194,10 +195,6 @@ def test_save_pgsql_conf(matrix):
     assert matrix.kv.get("pgsql_pass") == "password"
 
 
-def test_synapse_render_file(matrix, mock_templating, tmpdir):
-    """Verify synapse template generation."""
-
-
 def test_render_configs(matrix, tmpdir):
     """Test rendering of  configuration for the homeserver and enabled bridges."""
     path = tmpdir.join("homeserver.yaml")
@@ -211,7 +208,7 @@ def test_render_configs(matrix, tmpdir):
     assert b'server_name: "manual.mock.host"\n' in content
 
 
-def test_configure(matrix, mock_layers):
+def test_configure(matrix):
     """Test running the configure method."""
     result = matrix.configure()
     assert result is True
