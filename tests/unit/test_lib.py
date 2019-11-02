@@ -59,13 +59,13 @@ def test_start_service(matrix, mock_host):
     """Start and enable the provided service, return run state."""
     matrix.synapse_service = "testservice"
     status = matrix.start_synapse()
-    assert mock_host.service.called_with("testservice", "enable")
-    assert mock_host.service.called_with("testservice", "start")
+    assert mock_host.service.called_with("enable", "testservice")
+    assert mock_host.service.called_with("start", "testservice")
     assert mock_host.service.call_count == 2
     assert status is True
 
 
-def start_services(matrix):
+def test_start_services(matrix):
     """Configure and start services."""
     matrix.start_services()
     assert matrix.start_synapse.call_count == 1
@@ -74,9 +74,8 @@ def start_services(matrix):
 def test_get_server_name(matrix, mock_socket):
     """Test get_server_name."""
     result = matrix.get_server_name()
-    assert mock_socket.getfqdn.call_count == 1
     assert result == "mockhost"
-    matrix.charm_config["server_name"] = "manualmockhost"
+    matrix.charm_config["server-name"] = "manualmockhost"
     result = matrix.get_server_name()
     assert result == "manualmockhost"
 
@@ -104,7 +103,7 @@ def test_configure_proxy(matrix):
                 "external_port": 80,
                 "internal_host": "mockhost",
                 "internal_port": 8008,
-                "subdomain": "manualmockhost",
+                "subdomain": "mockhost",
             }
         ]
     )
@@ -121,7 +120,25 @@ def test_configure_proxy(matrix):
                 "external_port": 443,
                 "internal_host": "mockhost",
                 "internal_port": 8008,
-                "subdomain": "manualmockhost",
+                "subdomain": "mockhost",
+            }
+        ]
+    )
+    
+    # Test manual server name
+    mock_proxy.reset_mock()
+    matrix.charm_config["enable-tls"] = False
+    matrix.charm_config["server-name"] = "manual.mock.host"
+    matrix.configure_proxy(mock_proxy)
+    assert mock_proxy.configure.called
+    assert mock_proxy.configure.call_args == mock.call(
+        [
+            {
+                "mode": "http",
+                "external_port": 80,
+                "internal_host": "mockhost",
+                "internal_port": 8008,
+                "subdomain": "manual.mock.host",
             }
         ]
     )
@@ -181,7 +198,7 @@ def test_render_configs(matrix):
     assert matrix.render_appservice_slack_config.call_count == 1
 
 
-def test_configure(matrix):
+def test_configure(matrix, mock_matrix_start_services):
     """Test running the configure method."""
     matrix.render_configs()
     assert matrix.start_services.call_count == 1

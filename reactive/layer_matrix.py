@@ -48,9 +48,18 @@ def install_matrix_appservice_slack():
 @when("pgsql.database.connected")
 def set_pgsql_db():
     """Set PostgreSQL database name, so the related charm will create the DB for us."""
-    hookenv.log("Requesting matrix DB from {}".format(hookenv.remote_unit()))
-    pgsql = endpoint_from_flag("postgresql.database.connected")
+    hookenv.log("Requesting matrix DB from {}".format(hookenv.remote_unit()),
+                hookenv.DEBUG)
+    pgsql = endpoint_from_flag("pgsql.database.connected")
     pgsql.set_database("matrix")
+
+
+@when("pgsql.database.available")
+def save_pgsql_db():
+    """Save PostgreSQL data configuration in the key value store."""
+    pgsql = endpoint_from_flag("pgsql.database.available")
+    hookenv.log("Recieved matrix DB from PostgreSQL: {}".format(pgsql),
+                hookenv.DEBUG)
     matrix.save_pgsql_conf(pgsql)
 
 
@@ -66,7 +75,8 @@ def remove_pgsql():
 def remove_proxy():
     """Remove the haproxy configuration when the relation is removed."""
     hookenv.status_set("maintenance", "Removing reverse proxy relation")
-    hookenv.log("Removing config for: {}".format(hookenv.remote_unit()))
+    hookenv.log("Removing config for: {}".format(hookenv.remote_unit()),
+                hookenv.DEBUG)
     hookenv.status_set("active", matrix.HEALTHY)
     clear_flag("reverseproxy.configured")
 
@@ -90,7 +100,7 @@ def missing_db_relation():
 def configure_proxy():
     """Configure reverse proxy settings when haproxy is related."""
     hookenv.status_set("maintenance", "Applying reverse proxy configuration")
-    hookenv.log("Configuring reverse proxy via: {}".format(hookenv.remote_unit()))
+    hookenv.log("Configuring reverse proxy via: {}".format(hookenv.remote_unit()), hookenv.DEBUG)
 
     interface = endpoint_from_name("reverseproxy")
     matrix.save_proxy_config(interface)
@@ -109,6 +119,6 @@ def configure_matrix(reverseproxy, *args):
     and services running.
     """
     hookenv.status_set("maintenance", "Configuring matrix")
-    hookenv.log(("Configuring matrix"))
+    hookenv.log("Configuring matrix", hookenv.DEBUG)
 
     matrix.configure()

@@ -17,7 +17,7 @@ from charms.reactive.helpers import any_file_changed
 class MatrixHelper:
     """Helper class for installing, configuring and managing services for Matrix."""
 
-    homeserver_config = "/var/snap/matrix-synapse/homeserver.yaml"
+    homeserver_config = "/var/snap/matrix-synapse/common/homeserver.yaml"
     synapse_service = "snap.matrix-synapse.matrix-synapse"
 
     HEALTHY = "Matrix homeserver installed and configured."
@@ -47,8 +47,8 @@ class MatrixHelper:
 
     def start_service(self, service):
         """Start and enable the provided service, return run state."""
-        host.service(service, "enable")
-        host.service(service, "start")
+        host.service("enable", self.synapse_service)
+        host.service("start", self.synapse_service)
         return host.service_running(service)
 
     def start_synapse(self):
@@ -69,14 +69,34 @@ class MatrixHelper:
             fqdn = socket.getfqdn()
             return fqdn
 
+    def get_public_baseurl(self):
+        """Return the public URI for this server."""
+        server_name = self.get_server_name()
+        tls = self.get_tls()
+        if tls:
+            return "https://{}".format(
+                server_name
+            )
+        return "http://{}".format(
+            server_name
+        )
+
     def get_tls(self):
         """Return the configured TLS state."""
         configured_value = self.charm_config["enable-tls"]
         if configured_value:
             return configured_value
-        else:
-            fqdn = "http://{}".format(socket.getfqdn())
-            return fqdn
+        return False
+
+    def get_domain_whitelist(self):
+        """Return dict of domains to whitelist based on comma separated charm config."""
+        whitelist = self.charm_config["federation-domain-whitelist"]
+        return whitelist.split(",")
+
+    def get_federation_iprange_blacklist(self):
+        """Return dict of ip ranges to blacklist based on comma separated charm config."""
+        blacklist = self.charm_config["federation-ip-range-blacklist"]
+        return blacklist.split(",")
 
     def configure_proxy(self, proxy):
         """Configure Synapse for operation behind a reverse proxy."""
@@ -113,25 +133,11 @@ class MatrixHelper:
                 hookenv.DEBUG,
             )
             return True
+        hookenv.log(
+            "PostgreSQL is not yet configured in the charm KV store",
+            hookenv.WARNING,
+        )
         return False
-
-    def redis_configured(self):
-        """Determine if Redis is related and the KV has been updated with configuration."""
-        if self.kv.get("redis_host") and self.kv.get("redis_port"):
-            hookenv.log(
-                "Redis is related and configured in the charm KV store", hookenv.DEBUG
-            )
-            return True
-        return False
-
-    def remove_mysql_conf(self):
-        """Remove legacy MySQL configuraion from the unit KV store."""
-        # legacy kv to clean up
-        self.kv.unset("mysql_host")
-        self.kv.unset("mysql_port")
-        self.kv.unset("mysql_db")
-        self.kv.unset("mysql_user")
-        self.kv.unset("mysql_pass")
 
     def remove_pgsql_conf(self):
         """Remove the MySQL configuration from the unit KV store."""
@@ -143,7 +149,7 @@ class MatrixHelper:
 
     def save_pgsql_conf(self, db):
         """Configure Matrix with knowledge of a related PostgreSQL endpoint."""
-        hookenv.log(db, hookenv.DEBUG)
+        hookenv.log("Request to save PostgreSQL configuration: {}".format(db), hookenv.DEBUG)
         if db:
             hookenv.log(
                 "Saving related PostgreSQL database config: {}".format(db.master),
@@ -157,18 +163,36 @@ class MatrixHelper:
 
     def render_synapse_config(self):
         """Render the configuration for Matrix synapse."""
+        hookenv.log(
+            "Rendering synapse configuration to {}".format(self.homeserver_config),
+            hookenv.DEBUG,
+        )
         if self.pgsql_configured():
             templating.render(
                 "homeserver.yaml.j2",
                 self.homeserver_config,
                 {
-                    "db_host": self.kv.get("pgsql_host"),
-                    "db_port": self.kv.get("pgsql_port"),
-                    "db_database": self.kv.get("pgsql_db"),
-                    "db_user": self.kv.get("pgsql_user"),
-                    "db_password": self.kv.get("pgsql_pass"),
+                    "pgsql_host": self.kv.get("pgsql_host"),
+                    "pgsql_port": self.kv.get("pgsql_port"),
+                    "pgsql_db": self.kv.get("pgsql_db"),
+                    "pgsql_user": self.kv.get("pgsql_user"),
+                    "pgsql_pass": self.kv.get("pgsql_pass"),
                     "server_name": self.get_server_name(),
+                    "public_baseurl": self.get_public_baseurl(),
                     "enable_tls": self.get_tls(),
+                    "enable_search": self.charm_config["enable-search"],
+                    "enable_user_directory": self.charm_config["enable-user-directory"],
+                    "enable_room_list_search": self.charm_config["enable-room-list-search"],
+                    "enable_registration": self.charm_config["enable-registration"],
+                    "use_presence": self.charm_config["track-presence"],
+                    "require_auth_for_profile_requests": self.charm_config["require-auth-profile-requests"],
+                    "default_room_version": self.charm_config["default-room-version"],
+                    "block_non_admin_invites": not bool(self.charm_config["enable-non-admin-invites"]),
+                    "report_stats": self.charm_config["enable-reporting-stats"],
+                    "allow_public_rooms_without_auth": self.charm_config["allow-public-rooms-unauthed"],
+                    "allow_public_rooms_over_federation": self.charm_config["allow-public-rooms-federated"],
+                    "federation_domain_whitelist": self.get_domain_whitelist(),
+                    "federation_ip_range_blacklist": self.get_federation_iprange_blacklist(),
                 },
             )
         if any_file_changed([self.homeserver_config]):
@@ -191,6 +215,11 @@ class MatrixHelper:
                     "server_name": self.get_server_name(),
                     "enable_tls": self.get_tls(),
                 },
+            )
+        else:
+            hookenv.log(
+                "Skipped rendering synapse configuration due to unconfigured pgsql",
+                hookenv.DEBUG,
             )
         if any_file_changed([self.homeserver_config]):
             self.restart_synapse()

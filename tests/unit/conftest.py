@@ -122,6 +122,12 @@ def mock_socket(monkeypatch):
 
 
 @pytest.fixture
+def mock_matrix_start_services(monkeypatch):
+    """Mock start_services function in helper library."""
+    monkeypatch.setattr("lib_matrix.MatrixHelper.start_services", mock.Mock())
+
+
+@pytest.fixture
 def matrix(
     tmpdir, mock_hookenv_config, mock_charm_dir, mock_template, mock_socket, monkeypatch
 ):
