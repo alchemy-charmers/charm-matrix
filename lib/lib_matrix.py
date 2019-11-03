@@ -150,11 +150,10 @@ class MatrixHelper:
 
     def start_services(self):
         """Configure and start services."""
-        result = True
-        result = self.start_synapse() and result
-        result = self.start_appservice_irc() and result
-        result = self.start_appservice_slack() and result
-        return result
+        synapse_result = self.start_synapse()
+        irc_result = self.start_appservice_irc()
+        slack_result = self.start_appservice_slack()
+        return synapse_result and irc_result and slack_result
 
     def get_server_name(self):
         """Return the configured server name."""
@@ -378,23 +377,20 @@ class MatrixHelper:
 
     def install_snaps(self):
         """Install snaps for configured briges."""
-        result = True
         if not self.check_snap_installed(self.synapse_snap):
             hookenv.log("Installing {} snap".format(self.synapse_snap), hookenv.DEBUG)
-            result = self.install_snap(self.synapse_snap) and result
+            synapse_result = self.install_snap(self.synapse_snap)
         irc_installed = self.check_snap_installed(self.appservice_irc_snap)
         if self.charm_config.get("enable-irc"):
             if not irc_installed:
                 hookenv.log(
                     "Installing {} snap".format(self.appservice_irc_snap), hookenv.DEBUG
                 )
-                result = self.install_snap(self.appservice_irc_snap) and result
+                irc_result = self.install_snap(self.appservice_irc_snap)
         elif irc_installed:
             self.remove_snap(self.appservice_irc_snap)
         # TODO: additional bridges
-        if result:
-            hookenv.log("Snaps are installed.", hookenv.DEBUG)
-        return result
+        return synapse_result and irc_result
 
     def configure(self):
         """

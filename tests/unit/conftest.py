@@ -9,8 +9,26 @@ from charmhelpers.core import unitdata
 @pytest.fixture
 def mock_snap(monkeypatch):
     """Mock snap layer."""
+    def mocked_install(name):
+        if name == 'bad-snap':
+            return False
+        return True
+
+    def mocked_is_installed(name):
+        if name == 'installed-snap':
+            return True
+        return False
+
+    mocked_snap_install = mock.Mock()
+    mocked_snap_install.side_effect = mocked_install
+
+    mocked_snap_is_installed = mock.Mock()
+    mocked_snap_is_installed.side_effect = mocked_is_installed
+
     monkeypatch.syspath_prepend(".")
     monkeypatch.setattr("charms.layer.snap", mock.Mock())
+    monkeypatch.setattr("charms.layer.snap.install", mocked_snap_install)
+    monkeypatch.setattr("charms.layer.snap.is_installed", mocked_snap_is_installed)
 
 
 @pytest.fixture
@@ -33,12 +51,22 @@ def mock_host_service(monkeypatch):
 def mock_host_service_running(monkeypatch):
     """Mock host service_running on lib_matrix."""
     def mocked_service_running(name):
+        if name == 'failing-service':
+            return False
         return True
 
     mock_service_running = mock.Mock()
     mock_service_running.side_effect = mocked_service_running
     monkeypatch.setattr("lib_matrix.host.service_running", mock_service_running)
     return mock_service_running
+
+
+@pytest.fixture
+def mock_status_set(monkeypatch):
+    """Mock status_set used in lib_matrix."""
+    mocked_status_set = mock.Mock()
+    monkeypatch.setattr("lib_matrix.hookenv.status_set", mocked_status_set)
+    return mocked_status_set
 
 
 @pytest.fixture
@@ -62,7 +90,7 @@ def mock_psycopg2(monkeypatch):
     mock_module = mock.Mock()
     mock_connect = mock.Mock()
 
-    def mocked_execute(self, query, vars=None):
+    def mocked_execute(query, vars=None):
         print(query)
         return True
 
@@ -70,18 +98,24 @@ def mock_psycopg2(monkeypatch):
         def execute(self, query, vals=None):
             return True
 
+    class Error(BaseException):
+        diag = {
+            "e": "mocked"
+        }
+
     class Connection:
         def cursor(self):
             return Cursor()
 
-    def mocked_connect():
+    def mocked_connect(host, port, database, user, password):
         return Connection()
 
     mock_connect.side_effect = mocked_connect
     mock_execute.side_effect = mocked_execute
     monkeypatch.setattr("lib_matrix.psycopg2", mock_module)
     monkeypatch.setattr("lib_matrix.psycopg2.connect", mock_connect)
-    monkeypatch.setattr("lib_matrix.psycopg2.Cursor", Cursor())
+    monkeypatch.setattr("lib_matrix.psycopg2.Cursor", Cursor)
+    monkeypatch.setattr("lib_matrix.psycopg2.Error", Error)
     monkeypatch.setattr("lib_matrix.psycopg2.Cursor.execute", mock_execute)
 
     return mock_module
@@ -197,6 +231,7 @@ def matrix(
     mock_lsb_release,
     mock_host_service,
     mock_host_service_running,
+    mock_status_set,
     mock_template,
     mock_socket,
     mock_snap,

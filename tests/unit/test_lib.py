@@ -39,6 +39,12 @@ def test_pgsql_configured(matrix):
     assert result is True
 
 
+def test_pgsql_query(matrix, mock_psycopg2):
+    """Test the pgsql_query function."""
+    result = matrix.pgsql_query("SELECT * from users;")
+    assert result is False
+
+
 def test_set_password(matrix, mock_check_output, mock_psycopg2):
     """Test setting the password for a provided synapse user."""
     matrix.set_password("testuser", "testpassword")
@@ -81,7 +87,7 @@ def test_register_user(matrix, mock_check_output, mock_psycopg2):
 def test_restart(matrix, mock_host_service):
     """Restart services."""
     matrix.synapse_service = "testservice"
-    matrix.restart_synapse()
+    matrix.restart()
     assert mock_host_service.called_with("restart", "testservice")
     assert mock_host_service.call_count == 1
 
@@ -90,6 +96,7 @@ def test_start_services(matrix, mock_host_service):
     """Configure and start services."""
     mock_host_service.reset_mock()
     matrix.charm_config["enable-irc"] = False
+    matrix.charm_config["enable-slack"] = False
     status = matrix.start_services()
     mock_host_service.assert_has_calls(
         [
@@ -102,6 +109,7 @@ def test_start_services(matrix, mock_host_service):
     assert status is True
     mock_host_service.reset_mock()
     matrix.charm_config["enable-irc"] = True
+    matrix.charm_config["enable-slack"] = False
     status = matrix.start_services()
     mock_host_service.assert_has_calls(
         [
@@ -114,6 +122,39 @@ def test_start_services(matrix, mock_host_service):
     )
     assert mock_host_service.call_count == 4
     assert status is True
+    mock_host_service.reset_mock()
+    matrix.charm_config["enable-irc"] = False
+    matrix.charm_config["enable-slack"] = True
+    status = matrix.start_services()
+    mock_host_service.assert_has_calls(
+        [
+            mock.call("start", matrix.synapse_service),
+            mock.call("enable", matrix.synapse_service),
+            mock.call("start", matrix.appservice_slack_service),
+            mock.call("enable", matrix.appservice_slack_service),
+        ],
+        any_order=False,
+    )
+    assert mock_host_service.call_count == 4
+    assert status is True
+    mock_host_service.reset_mock()
+    matrix.charm_config["enable-irc"] = True
+    matrix.charm_config["enable-slack"] = True
+    matrix.synapse_service = 'failing-service'
+    status = matrix.start_services()
+    mock_host_service.assert_has_calls(
+        [
+            mock.call("start", 'failing-service'),
+            mock.call("enable", 'failing-service'),
+            mock.call("start", matrix.appservice_irc_service),
+            mock.call("enable", matrix.appservice_irc_service),
+            mock.call("start", matrix.appservice_slack_service),
+            mock.call("enable", matrix.appservice_slack_service),
+        ],
+        any_order=False,
+    )
+    assert mock_host_service.call_count == 6
+    assert status is False
 
 
 def test_get_server_name(matrix, mock_socket):
@@ -123,6 +164,16 @@ def test_get_server_name(matrix, mock_socket):
     matrix.charm_config["server-name"] = "manualmockhost"
     result = matrix.get_server_name()
     assert result == "manualmockhost"
+
+
+def test_baseurl(matrix):
+    """Test the get_public_baseurl function."""
+    matrix.charm_config["enable-tls"] = False
+    result = matrix.get_public_baseurl()
+    assert result == "http://mockhost"
+    matrix.charm_config["enable-tls"] = True
+    result = matrix.get_public_baseurl()
+    assert result == "https://mockhost"
 
 
 def test_get_tls(matrix):
@@ -236,5 +287,13 @@ def test_render_configs(matrix, tmpdir):
 
 def test_configure(matrix):
     """Test running the configure method."""
+    result = matrix.configure()
+    assert result is True
+    matrix.synapse_service = 'failing-service'
+    matrix.synapse_snap = 'bad-snap'
+    result = matrix.configure()
+    assert result is False
+    matrix.synapse_service = 'snap.matrix-synapse.matrix-synapse'
+    matrix.synapse_snap = 'installed-snap'
     result = matrix.configure()
     assert result is True
