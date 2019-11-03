@@ -32,6 +32,13 @@ def mock_snap(monkeypatch):
 
 
 @pytest.fixture
+def mock_port(monkeypatch):
+    """Mock the open and close port functions in hookenv."""
+    monkeypatch.setattr("lib_matrix.hookenv.open_port", mock.Mock())
+    monkeypatch.setattr("lib_matrix.hookenv.close_port", mock.Mock())
+
+
+@pytest.fixture
 def mock_host_service(monkeypatch):
     """Mock host import on lib_matrix."""
     def mocked_service(action, name):
@@ -98,6 +105,9 @@ def mock_psycopg2(monkeypatch):
         def execute(self, query, vals=None):
             return True
 
+        def close(self):
+            return True
+
     class Error(BaseException):
         diag = {
             "e": "mocked"
@@ -107,7 +117,13 @@ def mock_psycopg2(monkeypatch):
         def cursor(self):
             return Cursor()
 
-    def mocked_connect(host, port, database, user, password):
+        def commit(self):
+            return True
+
+        def close(self):
+            return True
+
+    def mocked_connect(host, port, dbname, user, password):
         return Connection()
 
     mock_connect.side_effect = mocked_connect
@@ -125,7 +141,7 @@ def mock_psycopg2(monkeypatch):
 def mock_check_output(monkeypatch):
     """Mock subprocess check_output on lib_matrix."""
     def mocked_check_output(command):
-        return 'mocked-output'
+        return b'mocked-output'
 
     mock_call = mock.Mock()
     mock_call.side_effect = mocked_check_output
@@ -233,6 +249,7 @@ def matrix(
     mock_host_service_running,
     mock_status_set,
     mock_template,
+    mock_port,
     mock_socket,
     mock_snap,
     monkeypatch,
@@ -243,8 +260,8 @@ def matrix(
     helper = MatrixHelper()
 
     # Example config file patching
-    homeserver_file = tmpdir.join("homeserver.yaml")
-    helper.homeserver_config = homeserver_file.strpath
+    synapse_config_file = tmpdir.join("homeserver.yaml")
+    helper.synapse_config = synapse_config_file.strpath
     synapse_signing_key_file = tmpdir.join("signing.key")
     helper.synapse_signing_key_file = synapse_signing_key_file.strpath
 

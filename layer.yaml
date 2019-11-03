@@ -11,6 +11,8 @@ includes:
   - interface:pgsql
 options:
   basic:
+    packages:
+      - libpq-dev
     python_packages:
       - signedjson
       - psycopg2

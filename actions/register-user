@@ -4,17 +4,20 @@ from lib_matrix import MatrixHelper
 from charmhelpers.core import hookenv
 
 matrix = MatrixHelper()
-name = hookenv.action_get('name')
-password = hookenv.action_get('pass')
-admin = hookenv.action_get('admin')
-err = matrix.register_user(name, password=password, admin=admin)
+name = hookenv.action_get("user")
+password = hookenv.action_get("pass")
+admin = hookenv.action_get("admin")
 
-if err:
-    hookenv.action_fail(err)
-
-msg = "Successfully registered user {} on {}.".format(
-        name, hookenv.local_unit())
-hookenv.action_set({'outcome': 'success',
-                    'message': msg })
+if name:
+    result = matrix.register_user(name, password=password, admin=admin)
+    if result:
+        msg = "Successfully registered user {} on {}: ".format(
+            name, hookenv.local_unit(), result
+        )
+        hookenv.action_set({"outcome": "success", "message": msg})
+    else:
+        hookenv.action_fail("{}".format(result))
+else:
+    hookenv.action_fail("Please provide at least user as a parameter.")
 
 # vim: set ft=python

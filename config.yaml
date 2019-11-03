@@ -91,3 +91,11 @@ options:
     type: boolean
     default: false
     description: "Enable searching the room list"
+  irc-nick-template:
+    type: string
+    default: "$DISPLAY[m]"
+    description: "The template used when setting use nicknames on bridged IRC servers."
+  irc-networks:
+    type: string
+    default: ""
+    description: "A comma separated list of networks to bridge. Per-network options can be overridden by separating options with colons. See the README for more information."

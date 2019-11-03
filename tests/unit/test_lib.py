@@ -23,7 +23,7 @@ def test_matrix_kv(matrix):
 def test_hash_password(matrix, mock_check_output):
     """Test the hash password function."""
     result = matrix.hash_password("testpassword")
-    assert result == 'mocked-output'
+    assert result == "mocked-output"
 
 
 def test_pgsql_configured(matrix):
@@ -42,7 +42,7 @@ def test_pgsql_configured(matrix):
 def test_pgsql_query(matrix, mock_psycopg2):
     """Test the pgsql_query function."""
     result = matrix.pgsql_query("SELECT * from users;")
-    assert result is False
+    assert result is True
 
 
 def test_set_password(matrix, mock_check_output, mock_psycopg2):
@@ -54,14 +54,16 @@ def test_set_password(matrix, mock_check_output, mock_psycopg2):
             "run",
             "{}.hash_password".format(matrix.synapse_snap),
             "-c",
-            "/var/snap/{}/common/config.yaml".format(matrix.synapse_snap),
+            matrix.synapse_config,
             "-p",
             "testpassword",
         ]
     )
+    assert mock_check_output.call_count == 1
     assert mock_psycopg2.Cursor.execute.called_with(
         "UPDATE users SET password_hash='testhash' WHERE name='testuser';"
     )
+    assert mock_psycopg2.Cursor.execute.call_count == 1
 
 
 def test_register_user(matrix, mock_check_output, mock_psycopg2):
@@ -71,17 +73,18 @@ def test_register_user(matrix, mock_check_output, mock_psycopg2):
         [
             "snap",
             "run",
-            "{}.hash-password".format(matrix.appservice_irc_snap),
-            "-c",
-            "/var/snap/{}/common/config.yaml".format(matrix.appservice_irc_snap),
+            "{}.register-new-matrix-user".format(matrix.synapse_snap),
+            "-u",
+            "testuser",
             "-p",
             "testpassword",
+            "-a",
+            "-c",
+            matrix.synapse_config,
+            "http://mockhost:8008",
         ]
     )
-    assert mock_psycopg2.Cursor.execute.called_with(
-        "INSERT INTO users (name, password, admin) VALUES (%s, %s, %s);",
-        "('testuser','testpassword',True)"
-    )
+    assert mock_check_output.call_count == 1
 
 
 def test_restart(matrix, mock_host_service):
@@ -140,12 +143,12 @@ def test_start_services(matrix, mock_host_service):
     mock_host_service.reset_mock()
     matrix.charm_config["enable-irc"] = True
     matrix.charm_config["enable-slack"] = True
-    matrix.synapse_service = 'failing-service'
+    matrix.synapse_service = "failing-service"
     status = matrix.start_services()
     mock_host_service.assert_has_calls(
         [
-            mock.call("start", 'failing-service'),
-            mock.call("enable", 'failing-service'),
+            mock.call("start", "failing-service"),
+            mock.call("enable", "failing-service"),
             mock.call("start", matrix.appservice_irc_service),
             mock.call("enable", matrix.appservice_irc_service),
             mock.call("start", matrix.appservice_slack_service),
@@ -272,14 +275,31 @@ def test_save_pgsql_conf(matrix):
     assert matrix.kv.get("pgsql_pass") == "password"
 
 
-def test_render_configs(matrix, tmpdir):
-    """Test rendering of  configuration for the homeserver and enabled bridges."""
+def test_render_synapse_config(matrix, tmpdir):
+    """Test rendering of configuration for the homeserver."""
     path = tmpdir.join("homeserver.yaml")
-    matrix.homeserver_config = path
+    matrix.synapse_config = path
     matrix.charm_config["enable-tls"] = False
     matrix.charm_config["server-name"] = "manual.mock.host"
     matrix.render_configs()
-    with open(matrix.homeserver_config, "rb") as config_file:
+    with open(matrix.synapse_config, "rb") as config_file:
+        content = config_file.readlines()
+    print(content)
+    assert b'server_name: "manual.mock.host"\n' in content
+
+
+def test_render_irc_config(matrix, tmpdir):
+    """Test rendering of configuration for the IRC bridge."""
+    path = tmpdir.join("config.yaml")
+    matrix.appservice_irc_config = path
+    matrix.charm_config["server-name"] = "manual.mock.host"
+    matrix.charm_config["irc-networks"] = (
+        "irc.test.net,"
+        "irc.test2.net:user=testuser:pass=testpass:ssl=true:sasl=true:bot=false",
+        "irc.test3.net:bot=true:botnick=bottest",
+    )
+    matrix.render_configs()
+    with open(matrix.synapse_config, "rb") as config_file:
         content = config_file.readlines()
     print(content)
     assert b'server_name: "manual.mock.host"\n' in content
@@ -289,11 +309,11 @@ def test_configure(matrix):
     """Test running the configure method."""
     result = matrix.configure()
     assert result is True
-    matrix.synapse_service = 'failing-service'
-    matrix.synapse_snap = 'bad-snap'
+    matrix.synapse_service = "failing-service"
+    matrix.synapse_snap = "bad-snap"
     result = matrix.configure()
     assert result is False
-    matrix.synapse_service = 'snap.matrix-synapse.matrix-synapse'
-    matrix.synapse_snap = 'installed-snap'
+    matrix.synapse_service = "snap.matrix-synapse.matrix-synapse"
+    matrix.synapse_snap = "installed-snap"
     result = matrix.configure()
     assert result is True

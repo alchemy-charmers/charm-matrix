@@ -15,7 +15,6 @@ from charms.layer import snap
 
 
 # TODO: limits.conf file handle config
-# TODO: template configuration
 # TODO: handle federation bridges install
 # TODO: libjemalloc
 
@@ -23,7 +22,8 @@ from charms.layer import snap
 class MatrixHelper:
     """Helper class for installing, configuring and managing services for Matrix."""
 
-    homeserver_config = "/var/snap/matrix-synapse/common/homeserver.yaml"
+    synapse_config = "/var/snap/matrix-synapse/common/homeserver.yaml"
+    appservice_irc_config = "/var/snap/matrix-appservice-irc/common/config.yaml"
 
     synapse_snap = "matrix-synapse"
     appservice_irc_snap = "matrix-appservice-irc"
@@ -32,6 +32,7 @@ class MatrixHelper:
     synapse_service = "snap.matrix-synapse.matrix-synapse"
     appservice_irc_service = "snap.matrix-appservice-irc.matrix-appservice-irc"
     appservice_slack_service = "snap.matrix-appservice-slack.matrix-appservice-slack"
+
     synapse_conf_dir = "/var/snap/matrix-synapse/common/"
     synapse_signing_key_file = None
 
@@ -53,19 +54,46 @@ class MatrixHelper:
             "run",
             "{}.hash-password".format(self.synapse_snap),
             "-c",
-            "/var/snap/{}/common/config.yaml".format(self.synapse_snap),
+            self.synapse_config,
             "-p",
-            "testpassword",
+            password,
         ]
-        return check_output(cmd)
+        result = check_output(cmd)
+        str_result = result.decode('utf-8')
+        return str_result.rstrip()
 
     def set_password(self, user, password):
         """Set the password for a provided synapse user."""
-        return True
+        hashed_password = self.hash_password(password)
+        hookenv.log("Storing hash: {}".format(hashed_password), hookenv.DEBUG)
+        result = self.pgsql_query(
+            "UPDATE users SET password_hash = '{}';".format(hashed_password)
+        )
+        return result
 
     def register_user(self, user, password=None, admin=False):
         """Create a user with the provided credentials, and optionally set as an admin."""
-        return True
+        if not password:
+            password = self.random_string(16)
+        admin_flag = "--no-admin"
+        if admin:
+            admin_flag = "-a"
+        hookenv.log("Registering user {}".format(user), hookenv.DEBUG)
+        cmd = [
+            "snap",
+            "run",
+            "{}.register-new-matrix-user".format(self.synapse_snap),
+            "-u",
+            user,
+            "-p",
+            password,
+            admin_flag,
+            "-c",
+            self.synapse_config,
+            self.get_server_url(),
+        ]
+        result = check_output(cmd)
+        return result
 
     def pgsql_query(self, query, values=None):
         """Execute the provided query against the related database."""
@@ -73,32 +101,48 @@ class MatrixHelper:
             connection = psycopg2.connect(
                 host=self.kv.get("pgsql_host"),
                 port=self.kv.get("pgsql_port"),
-                database=self.kv.get("pgsql_db"),
+                dbname=self.kv.get("pgsql_db"),
                 user=self.kv.get("pgsql_user"),
                 password=self.kv.get("pgsql_pass"),
             )
             cursor = connection.cursor()
             try:
+                hookenv.log(
+                    "Executing query {} with values {}".format(query, values),
+                    hookenv.DEBUG,
+                )
                 result = cursor.execute(query, vars=values)
+                connection.commit()
             except psycopg2.Error as e:
                 hookenv.log(
                     "Error {} from PostgreSQL when executing query {}".format(
                         e.diag.message_primary, query
-                    )
+                    ),
+                    hookenv.ERROR,
                 )
-                pass
-            else:
-                if result is None:
-                    return True
-                else:
-                    return result
-        return False
+                return e.diag.message_primary
+            hookenv.log("Query result: {}".format(result), hookenv.DEBUG)
+            cursor.close()
+            connection.close()
+            return result
 
     def random_string(self, length):
         """Implement the random_string function from the synapse stringutils package."""
         return "".join(
             random.SystemRandom().choice(string.ascii_letters) for _ in range(length)
         )
+
+    def get_shared_secret(self):
+        """Generate a shared secret for registration."""
+        shared_secret = self.charm_config.get("shared-secret")
+        saved_shared_secret = self.kv.get("shared-secret")
+        if not shared_secret:
+            if saved_shared_secret:
+                return saved_shared_secret
+            else:
+                shared_secret = self.random_string(16)
+                self.kv.set("shared-secret", shared_secret)
+        return shared_secret
 
     def get_synapse_signing_key(self):
         """Return the path of the synapse signing key, generating it if missing."""
@@ -154,6 +198,13 @@ class MatrixHelper:
         irc_result = self.start_appservice_irc()
         slack_result = self.start_appservice_slack()
         return synapse_result and irc_result and slack_result
+
+    def get_server_url(self):
+        """Return server URL for connecting to the API."""
+        if self.get_tls():
+            return "{}".format(self.get_public_baseurl)
+        else:
+            return "{}:8008".format(self.get_public_baseurl)
 
     def get_server_name(self):
         """Return the configured server name."""
@@ -254,16 +305,17 @@ class MatrixHelper:
     def render_synapse_config(self):
         """Render the configuration for Matrix synapse."""
         hookenv.log(
-            "Rendering synapse configuration to {}".format(self.homeserver_config),
+            "Rendering synapse configuration to {}".format(self.synapse_config),
             hookenv.DEBUG,
         )
         if self.pgsql_configured():
             templating.render(
                 "homeserver.yaml.j2",
-                self.homeserver_config,
+                self.synapse_config,
                 {
                     "conf_dir": self.synapse_conf_dir,
                     "signing_key": self.get_synapse_signing_key(),
+                    "registration_shared_secret": self.get_shared_secret(),
                     "pgsql_configured": self.pgsql_configured(),
                     "pgsql_host": self.kv.get("pgsql_host"),
                     "pgsql_port": self.kv.get("pgsql_port"),
@@ -298,34 +350,34 @@ class MatrixHelper:
                     "federation_ip_range_blacklist": self.get_federation_iprange_blacklist(),
                 },
             )
-        if any_file_changed([self.homeserver_config]):
+        if any_file_changed([self.synapse_config]):
             self.restart_synapse()
             return True
         return False
 
     def render_appservice_irc_config(self):
-        """Render the configuration for Matrix synapse."""
-        if self.pgsql_configured():
+        """Render the configuration for the IRC bridge."""
+        if self.pgsql_configured() and self.charm_config.get("enable-irc"):
+            hookenv.log(
+                "Rendering IRC configuration to {}".format(self.appservice_irc_config),
+                hookenv.DEBUG,
+            )
             templating.render(
-                "homeserver.yaml.j2",
-                self.homeserver_config,
+                "irc-config.yaml.j2",
+                self.appservice_irc_config,
                 {
                     "db_host": self.kv.get("pgsql_host"),
                     "db_port": self.kv.get("pgsql_port"),
-                    "db_database": self.kv.get("pgsql_db"),
+                    "db_database": "{}_irc".format(self.kv.get("pgsql_db")),
                     "db_user": self.kv.get("pgsql_user"),
                     "db_password": self.kv.get("pgsql_pass"),
                     "server_name": self.get_server_name(),
-                    "enable_tls": self.get_tls(),
                 },
             )
         else:
-            hookenv.log(
-                "Skipped rendering synapse configuration due to unconfigured pgsql",
-                hookenv.DEBUG,
-            )
-        if any_file_changed([self.homeserver_config]):
-            self.restart_synapse()
+            hookenv.log("Skipped rendering IRC bridge configuration", hookenv.DEBUG)
+        if any_file_changed([self.appservice_irc_config]):
+            self.restart_appservice_irc()
             return True
         return False
 
@@ -403,6 +455,7 @@ class MatrixHelper:
             self.render_configs()
             if self.start_services():
                 hookenv.status_set("active", self.HEALTHY)
+                hookenv.open_port(8008)
                 return True
             else:
                 hookenv.status_set("blocked", "Matrix services are not running.")
@@ -411,4 +464,5 @@ class MatrixHelper:
                 "blocked",
                 "Snaps are not installable. Check snap store accessibility or that resources are uploaded.",
             )
+        hookenv.close_port(8008)
         return False
