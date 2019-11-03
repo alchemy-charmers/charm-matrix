@@ -67,23 +67,33 @@ def test_restart(matrix, mock_host_service):
     assert mock_host_service.call_count == 1
 
 
-# TODO: The invocations in the charm don't seem right, so fix this.
 def test_start_services(matrix, mock_host_service):
     """Configure and start services."""
+    mock_host_service.reset_mock()
+    matrix.charm_config["enable-irc"] = False
+    status = matrix.start_services()
+    mock_host_service.assert_has_calls(
+        [
+            mock.call("start", matrix.synapse_service),
+            mock.call("enable", matrix.synapse_service),
+        ],
+        any_order=False,
+    )
+    assert mock_host_service.call_count == 2
+    assert status is True
+    mock_host_service.reset_mock()
     matrix.charm_config["enable-irc"] = True
     status = matrix.start_services()
     mock_host_service.assert_has_calls(
         [
             mock.call("start", matrix.synapse_service),
             mock.call("enable", matrix.synapse_service),
-            mock.call("is-active", matrix.synapse_service),
-            mock.call("start", matrix.synapse_service),
-            mock.call("enable", matrix.synapse_service),
-            mock.call("is-active", matrix.appservice_irc_service),
+            mock.call("start", matrix.appservice_irc_service),
+            mock.call("enable", matrix.appservice_irc_service),
         ],
         any_order=False,
     )
-    assert mock_host_service.call_count == 6
+    assert mock_host_service.call_count == 4
     assert status is True
 
 

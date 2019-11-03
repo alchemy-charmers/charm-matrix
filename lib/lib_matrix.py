@@ -111,7 +111,7 @@ class MatrixHelper:
 
     def restart_synapse(self):
         """Restart services."""
-        host.service_restart(self.synapse_service)
+        host.service("restart", self.synapse_service)
         return True
 
     def restart(self):
@@ -121,8 +121,8 @@ class MatrixHelper:
 
     def start_service(self, service):
         """Start and enable the provided service, return run state."""
-        host.service("start", self.synapse_service)
-        host.service("enable", self.synapse_service)
+        host.service("start", service)
+        host.service("enable", service)
         return host.service_running(service)
 
     def start_synapse(self):

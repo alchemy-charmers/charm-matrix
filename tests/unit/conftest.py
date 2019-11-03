@@ -30,6 +30,18 @@ def mock_host_service(monkeypatch):
 
 
 @pytest.fixture
+def mock_host_service_running(monkeypatch):
+    """Mock host service_running on lib_matrix."""
+    def mocked_service_running(name):
+        return True
+
+    mock_service_running = mock.Mock()
+    mock_service_running.side_effect = mocked_service_running
+    monkeypatch.setattr("lib_matrix.host.service_running", mock_service_running)
+    return mock_service_running
+
+
+@pytest.fixture
 def mock_lsb_release(monkeypatch):
     """Mock lsb_release function charmhelpers."""
     def mocked_lsb_release():
@@ -184,6 +196,7 @@ def matrix(
     mock_charm_dir,
     mock_lsb_release,
     mock_host_service,
+    mock_host_service_running,
     mock_template,
     mock_socket,
     mock_snap,
