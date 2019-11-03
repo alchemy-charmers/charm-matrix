@@ -173,11 +173,11 @@ def test_baseurl(matrix):
     """Test the get_public_baseurl function."""
     matrix.charm_config["enable-tls"] = False
     result = matrix.get_public_baseurl()
-    assert result == "http://mockhost:8008/"
+    assert result == "http://mockhost:8008"
     matrix.charm_config["enable-tls"] = False
     matrix.external_port = 80
     result = matrix.get_public_baseurl()
-    assert result == "http://mockhost/"
+    assert result == "http://mockhost"
     matrix.charm_config["enable-tls"] = True
     result = matrix.get_public_baseurl()
     assert result == "https://mockhost/"

@@ -103,7 +103,7 @@ def configure_proxy():
     hookenv.log("Configuring reverse proxy via: {}".format(hookenv.remote_unit()), hookenv.DEBUG)
 
     interface = endpoint_from_name("reverseproxy")
-    matrix.save_proxy_config(interface)
+    matrix.configure_proxy(interface)
 
     hookenv.status_set("active", matrix.HEALTHY)
     set_flag("reverseproxy.configured")

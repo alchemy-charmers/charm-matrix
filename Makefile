@@ -49,6 +49,10 @@ build:
 release: clean build
 	@echo "Charm is built at $(JUJU_REPOSITORY)/builds"
 
+upgrade: release
+	@echo "Upgrading charm in current model"
+	@juju upgrade-charm matrix --path $(JUJU_REPOSITORY)/builds/matrix 
+
 clean:
 	@echo "Cleaning files"
 	@if [ -d .tox ] ; then rm -r .tox ; fi

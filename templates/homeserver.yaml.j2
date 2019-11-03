@@ -8,9 +8,9 @@ allow_public_rooms_over_federation: "{{ allow_public_rooms_over_federation }}"
 default_room_version: "{{ default_room_version }}"
 block_non_admin_invites: "{{ block_non_admin_invites }}"
 enable_search: "{{ enable_search }}"
-{%- if federation_domain_whitelist %}
+{% if federation_domain_whitelist %}
 federation_domain_whitelist:
-{%- for domain in federation_domain_whitelist %}
+{% for domain in federation_domain_whitelist %}
   - {{ domain }} 
 {% endfor %}
 {% endif %}
@@ -25,9 +25,9 @@ federation_ip_range_blacklist:
   - 'fe80::/64'
   - 'fc00::/7'
 {% if federation_ip_range_blacklist %}
-{%- for ip_range in federation_ip_range_blacklist %}
+{% for ip_range in federation_ip_range_blacklist %}
   - {{ ip_range }} 
-{% endfor -%}
+{% endfor %}
 {% endif %}
 listeners:
   - port: 8008
@@ -65,3 +65,7 @@ user_directory:
   enabled: {{ enable_user_directory }}
   search_all_users: false
 enable_room_list_search: "{{ enable_room_list_search }}"
+{% if enable_irc -%}
+app_service_config_files:
+  - "{{ appservice_irc_registration_file }}"
+{%- endif %}

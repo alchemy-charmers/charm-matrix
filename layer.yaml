@@ -16,6 +16,7 @@ options:
     python_packages:
       - signedjson
       - psycopg2
+      - pyOpenSSL
   snap:
     matrix-synapse:
       channel: stable

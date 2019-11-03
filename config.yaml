@@ -91,6 +91,10 @@ options:
     type: boolean
     default: false
     description: "Enable searching the room list"
+  irc-presence:
+    type: boolean
+    default: false
+    description: "Enable presence information in the IRC bridge."
   irc-nick-template:
     type: string
     default: "$DISPLAY[m]"

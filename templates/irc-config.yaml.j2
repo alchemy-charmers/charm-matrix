@@ -1,18 +1,25 @@
 homeserver:
-  url: "http://{{ synapse_host }}:8008"
+  url: "http://localhost:8008"
+  media-url: "{{ irc_media_url }}"
   domain: "{{ irc_domain }}"
-  enablePresence: "{{ irc_enable_presence }}"
+  enablePresence: {{ irc_enable_presence }}
 
 ircService:
   servers:
   {% for network in irc_networks %}
-    {{ network['host'] }}:
-      name: "{{ network['name'] }}"
-      port: {{ network['port'] }}
-      ssl: {{ network['ssl'] }}
-      sasl: {{ network['sasl'] }}
-      {% if network['pass'] -%}
-      password: "{{ network['pass'] }}"
+    {{ network["host"] }}:
+      name: "{{ network["name"] }}"
+      {% if network["port"] -%}
+      port: {{ network["port"] }}
+      {%- endif %}
+      {% if network["ssl"] -%}
+      ssl: {{ network["ssl"] }}
+      {%- endif %}
+      {% if network["sasl"] -%}
+      sasl: {{ network["sasl"] }}
+      {%- endif %}
+      {% if network["pass"] -%}
+      password: "{{ network["pass"] }}"
       {%- endif %}
       quitDebounce:
         enabled: false
@@ -25,14 +32,17 @@ ircService:
         v: 1
 
       botConfig:
-        enabled: "{{ network['bot'] }}"
-	{% if network['bot_nick'] -%}
-        nick: "MatrixBot" 
-	{%- endif %}
-	{% if network['bot_pass'] -%}
-        password: "{{ network['bot_pass'] }}"
-	{%- endif %}
+        enabled: {{ network["bot"] }}
+        {% if network["bot"] %}
+	{% if network["bot_nick"] %}
+        nick: "{{ network["bot_nick"] }}" 
+	{% endif %}
+	{% if network["bot_pass"] %}
+        password: "{{ network["bot_pass"] }}"
+	{% endif %}
         joinChannelsIfNoUsers: true
+	{% endif %}
+      
 
       privateMessages:
         enabled: true
@@ -43,8 +53,10 @@ ircService:
         createAlias: true
         published: true
         joinRule: public
-        groupId: +{{ network['name']}}:{{ domain }}
-        federate: "{{ network['federate'] }}"
+        groupId: +{{ network["name"]}}:{{ irc_domain }}
+        {% if network["federate"] %}
+        federate: "{{ network["federate"] }}"
+	{% endif %}
         aliasTemplate: "#irc_$SERVER_$CHANNEL"
 
       membershipLists:
@@ -76,6 +88,7 @@ ircService:
         reconnectIntervalMs: 5000
         concurrentReconnectLimit: 50
         lineLimit: 3
+{%- endfor %}
 
   ident:
     enabled: false
@@ -118,3 +131,5 @@ advanced:
 database:
   engine: "postgres"
   connectionString: "postgres://{{ pgsql_user }}:{{ pgsql_pass }}@{{ pgsql_host }}:{{ pgsql_port }}/{{ pgsql_db }}"
+
+
