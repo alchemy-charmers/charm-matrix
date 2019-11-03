@@ -36,6 +36,8 @@ class MatrixHelper:
     synapse_conf_dir = "/var/snap/matrix-synapse/common/"
     synapse_signing_key_file = None
 
+    external_port = 8008
+
     HEALTHY = "Matrix homeserver installed and configured."
 
     def __init__(self):
@@ -90,7 +92,7 @@ class MatrixHelper:
             admin_flag,
             "-c",
             self.synapse_config,
-            self.get_server_url(),
+            self.get_public_baseurl(),
         ]
         result = check_output(cmd)
         return result
@@ -199,13 +201,6 @@ class MatrixHelper:
         slack_result = self.start_appservice_slack()
         return synapse_result and irc_result and slack_result
 
-    def get_server_url(self):
-        """Return server URL for connecting to the API."""
-        if self.get_tls():
-            return "{}".format(self.get_public_baseurl)
-        else:
-            return "{}:8008".format(self.get_public_baseurl)
-
     def get_server_name(self):
         """Return the configured server name."""
         configured_value = self.charm_config["server-name"]
@@ -219,9 +214,11 @@ class MatrixHelper:
         """Return the public URI for this server."""
         server_name = self.get_server_name()
         tls = self.get_tls()
-        if tls:
-            return "https://{}".format(server_name)
-        return "http://{}".format(server_name)
+        if self.external_port == 8008:
+            return "http://{}:8008/".format(server_name)
+        elif tls:
+            return "https://{}/".format(server_name)
+        return "http://{}/".format(server_name)
 
     def get_tls(self):
         """Return the configured TLS state."""
@@ -240,20 +237,24 @@ class MatrixHelper:
         blacklist = self.charm_config["federation-ip-range-blacklist"]
         return list(filter(None, blacklist.split(",")))
 
+    def remove_proxy_config(self):
+        """Clean up proxy config and set exernal port back to 8008."""
+        self.external_port = 8008
+
     def configure_proxy(self, proxy):
         """Configure Synapse for operation behind a reverse proxy."""
         server_name = self.get_server_name()
         tls_enabled = self.get_tls()
 
         if tls_enabled:
-            port = 443
+            self.external_port = 443
         else:
-            port = 80
+            self.external_port = 80
 
         proxy_config = [
             {
                 "mode": "http",
-                "external_port": port,
+                "external_port": self.external_port,
                 "internal_host": socket.getfqdn(),
                 "internal_port": 8008,
                 "subdomain": server_name,

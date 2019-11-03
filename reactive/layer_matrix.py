@@ -77,6 +77,7 @@ def remove_proxy():
     hookenv.status_set("maintenance", "Removing reverse proxy relation")
     hookenv.log("Removing config for: {}".format(hookenv.remote_unit()),
                 hookenv.DEBUG)
+    matrix.remove_proxy_config()
     hookenv.status_set("active", matrix.HEALTHY)
     clear_flag("reverseproxy.configured")
 
