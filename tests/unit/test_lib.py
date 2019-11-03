@@ -20,6 +20,25 @@ def test_matrix_kv(matrix):
     assert isinstance(matrix.kv, unitdata.Storage)
 
 
+def test_hash_password(matrix, mock_check_output):
+    """Test the hash password function."""
+    result = matrix.hash_password("testpassword")
+    assert result == 'mocked-output'
+
+
+def test_pgsql_configured(matrix):
+    """Test the pgsql_configured routine."""
+    result = matrix.pgsql_configured()
+    assert result is False
+    matrix.kv.set("pgsql_user", "test")
+    matrix.kv.set("pgsql_db", "test")
+    matrix.kv.set("pgsql_pass", "test")
+    matrix.kv.set("pgsql_host", "test.test.test")
+    matrix.kv.set("pgsql_port", 1234)
+    result = matrix.pgsql_configured()
+    assert result is True
+
+
 def test_set_password(matrix, mock_check_output, mock_psycopg2):
     """Test setting the password for a provided synapse user."""
     matrix.set_password("testuser", "testpassword")
