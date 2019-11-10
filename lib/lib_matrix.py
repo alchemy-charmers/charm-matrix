@@ -10,6 +10,7 @@ from subprocess import check_output
 from charmhelpers.core import hookenv, host, templating, unitdata
 from charms.reactive.helpers import any_file_changed
 from signedjson.key import generate_signing_key, write_signing_keys
+from OpenSSL import crypto
 
 from charms.layer import snap
 
@@ -24,9 +25,12 @@ class MatrixHelper:
 
     synapse_config = "/var/snap/matrix-synapse/common/homeserver.yaml"
     appservice_irc_config = "/var/snap/matrix-appservice-irc/common/config.yaml"
+
+    # IRC registration is rendered twice, once for each snap
     appservice_irc_registration = (
         "/var/snap/matrix-appservice-irc/common/registration.yaml"
     )
+    synapse_irc_registration = "/var/snap/matrix-synapse/common/registration.yaml"
 
     synapse_snap = "matrix-synapse"
     appservice_irc_snap = "matrix-appservice-irc"
@@ -39,9 +43,14 @@ class MatrixHelper:
     synapse_conf_dir = "/var/snap/matrix-synapse/common/"
     synapse_signing_key_file = None
 
+    appservice_irc_key_path = "/var/snap/matrix-appservice-irc/common/db.key"
+
+    db_name = "matrix"
+    irc_db_name = "matrix_irc"
+
     external_port = 8008
 
-    HEALTHY = "Matrix homeserver installed and configured."
+    HEALTHY = "Matrix homeserver installed and configured"
 
     def __init__(self):
         """Load hookenv key/value store and charm configuration."""
@@ -110,6 +119,7 @@ class MatrixHelper:
                 user=self.kv.get("pgsql_user"),
                 password=self.kv.get("pgsql_pass"),
             )
+            connection.set_session(autocommit=True)
             cursor = connection.cursor()
             try:
                 hookenv.log(
@@ -117,7 +127,6 @@ class MatrixHelper:
                     hookenv.DEBUG,
                 )
                 result = cursor.execute(query, vars=values)
-                connection.commit()
             except psycopg2.Error as e:
                 hookenv.log(
                     "Error {} from PostgreSQL when executing query {}".format(
@@ -130,6 +139,30 @@ class MatrixHelper:
             cursor.close()
             connection.close()
             return result
+
+    def pgsql_create_db(self, name):
+        """Create the named PostgreSQL database."""
+        flag = "pgsql_created_{}".format(name)
+        if self.pgsql_configured():
+            if self.kv.get(flag):
+                return True
+            else:
+                create_result = self.pgsql_query(
+                    "CREATE DATABASE {0} OWNER postgres".format(name)
+                )
+                grant_result = self.pgsql_query(
+                    "GRANT ALL PRIVILEGES ON DATABASE {0} TO {1}".format(
+                        name, self.kv.get("pgsql_user")
+                    )
+                )
+                hookenv.log(
+                    "DB Create: {}, Grant: {}".format(create_result, grant_result),
+                    hookenv.DEBUG,
+                )
+                if create_result is None and grant_result is None:
+                    self.kv.set("pgsql_created_{}".format(name), True)
+                    return create_result
+        return False
 
     def random_string(self, length):
         """Implement the random_string function from the synapse stringutils package."""
@@ -347,7 +380,7 @@ class MatrixHelper:
                     "server_name": self.get_server_name(),
                     "public_baseurl": self.get_public_baseurl(),
                     "enable_irc": self.charm_config.get("enable-irc"),
-                    "appservice_irc_registration_file": self.appservice_irc_registration,
+                    "irc_registration_file": self.synapse_irc_registration,
                     "enable_tls": self.get_tls(),
                     "enable_search": self.charm_config["enable-search"],
                     "enable_user_directory": self.charm_config["enable-user-directory"],
@@ -405,13 +438,25 @@ class MatrixHelper:
                 else:
                     network_dict[option] = "true"
             if "port" not in network_dict:
-                if network_dict["ssl"]:
+                if network_dict["ssl"] is True:
                     network_dict["port"] = 6697
                 else:
                     network_dict["port"] = 6667
             network_list.append(network_dict)
         hookenv.log("Parsed networks: {}".format(network_list), hookenv.DEBUG)
         return network_list
+
+    def generate_irc_db_key(self):
+        """Generate a new encryption key and return path for the IRC appservice if missing, else return path."""
+        if not path.isfile(self.appservice_irc_key_path) or (
+            path.getsize(self.appservice_irc_key_path) == 0
+        ):
+            key = crypto.PKey()
+            key.generate_key(crypto.TYPE_RSA, 2048)
+            private_key = crypto.dump_privatekey(crypto.FILETYPE_PEM, key)
+            file_handle = open(self.appservice_irc_key_path, "w")
+            file_handle.write(private_key.decode("utf-8"))
+        return self.appservice_irc_key_path
 
     def render_appservice_irc_config(self):
         """Render the configuration for the IRC bridge."""
@@ -421,20 +466,22 @@ class MatrixHelper:
                 hookenv.DEBUG,
             )
             irc_networks = self.parse_networks(self.charm_config.get("irc-networks"))
+            key_path = self.generate_irc_db_key()
             templating.render(
                 "irc-config.yaml.j2",
                 self.appservice_irc_config,
                 {
-                    "irc_media_url": self.get_public_baseurl(),
                     "pgsql_host": self.kv.get("pgsql_host"),
                     "pgsql_port": self.kv.get("pgsql_port"),
-                    "pgsql_db": "{}_irc".format(self.kv.get("pgsql_db")),
+                    "pgsql_db": self.irc_db_name,
                     "pgsql_user": self.kv.get("pgsql_user"),
-                    "pgsql_password": self.kv.get("pgsql_pass"),
+                    "pgsql_pass": self.kv.get("pgsql_pass"),
+                    "irc_media_url": self.get_public_baseurl(),
                     "irc_networks": irc_networks,
                     "irc_domain": self.get_server_name(),
                     "irc_enable_presence": self.charm_config.get("irc-presence"),
                     "irc_nick_template": self.charm_config.get("irc-nick-template"),
+                    "key_path": key_path,
                 },
             )
         else:
@@ -454,16 +501,20 @@ class MatrixHelper:
                 hookenv.DEBUG,
             )
             irc_networks = self.parse_networks(self.charm_config.get("irc-networks"))
-            templating.render(
-                "appservice-registration-irc.yaml.j2",
+            for yamlpath in [
+                self.synapse_irc_registration,
                 self.appservice_irc_registration,
-                {
-                    "irc_id": self.get_token("irc_id"),
-                    "irc_hs_token": self.get_token("irc_hs_token"),
-                    "irc_as_token": self.get_token("irc_as_token"),
-                    "irc_networks": irc_networks,
-                },
-            )
+            ]:
+                templating.render(
+                    "appservice-registration-irc.yaml.j2",
+                    yamlpath,
+                    {
+                        "irc_id": self.get_token("irc_id"),
+                        "irc_hs_token": self.get_token("irc_hs_token"),
+                        "irc_as_token": self.get_token("irc_as_token"),
+                        "irc_networks": irc_networks,
+                    },
+                )
         else:
             hookenv.log("Skipped rendering IRC bridge registration", hookenv.DEBUG)
         if any_file_changed([self.appservice_irc_registration]):
@@ -502,6 +553,8 @@ class MatrixHelper:
         """Render configuration for the homeserver and enabled bridges."""
         self.render_synapse_config()
         if self.charm_config.get("enable-irc"):
+            self.pgsql_create_db(self.irc_db_name)
+            self.render_appservice_irc_registration()
             self.render_appservice_irc_config()
         if self.charm_config.get("enable-slack"):
             self.render_appservice_slack_config()

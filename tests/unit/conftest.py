@@ -123,6 +123,9 @@ def mock_psycopg2(monkeypatch):
         def close(self):
             return True
 
+        def set_session(self, **kwargs):
+            return True
+
     def mocked_connect(host, port, dbname, user, password):
         return Connection()
 

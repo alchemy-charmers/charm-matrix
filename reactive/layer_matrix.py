@@ -51,7 +51,7 @@ def set_pgsql_db():
     hookenv.log("Requesting matrix DB from {}".format(hookenv.remote_unit()),
                 hookenv.DEBUG)
     pgsql = endpoint_from_flag("pgsql.database.connected")
-    pgsql.set_database("matrix")
+    pgsql.set_database(matrix.db_name)
 
 
 @when("pgsql.database.available")

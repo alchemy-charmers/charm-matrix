@@ -81,8 +81,6 @@ ircService:
         nickTemplate: "{{ irc_nick_template }}"
         allowNickChanges: true 
         maxClients: 30
-        ipv6:
-          only: false
 
         idleTimeout: 10800
         reconnectIntervalMs: 5000
@@ -131,5 +129,4 @@ advanced:
 database:
   engine: "postgres"
   connectionString: "postgres://{{ pgsql_user }}:{{ pgsql_pass }}@{{ pgsql_host }}:{{ pgsql_port }}/{{ pgsql_db }}"
-
 

@@ -6,3 +6,4 @@ pytest-cov
 pytest-html
 signedjson
 psycopg2
+PyOpenSSL

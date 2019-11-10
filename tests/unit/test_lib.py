@@ -180,7 +180,7 @@ def test_baseurl(matrix):
     assert result == "http://mockhost"
     matrix.charm_config["enable-tls"] = True
     result = matrix.get_public_baseurl()
-    assert result == "https://mockhost/"
+    assert result == "https://mockhost"
 
 
 def test_get_tls(matrix):
