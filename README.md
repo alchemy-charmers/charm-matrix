@@ -1,5 +1,5 @@
-[![pipeline status](https://git.ec0.io/pirate-charmers/charm-matrix/badges/master/pipeline.svg)](https://git.ec0.io/pirate-charmers/charm-matrix/commits/master)                                                                  
-[![coverage report](https://git.ec0.io/pirate-charmers/charm-matrix/badges/master/coverage.svg)](https://git.ec0.io/pirate-charmers/charm-matrix/commits/master)
+[![pipeline status](https://git.ec0.io/alchemy-charmers/charm-matrix/badges/master/pipeline.svg)](https://git.ec0.io/alchemy-charmers/charm-matrix/commits/master)                                                                  
+[![coverage report](https://git.ec0.io/alchemy-charmers/charm-matrix/badges/master/coverage.svg)](https://git.ec0.io/alchemy-charmers/charm-matrix/commits/master)
 
 Matrix
 ======
@@ -40,6 +40,6 @@ TODO
 Author
 ======
 
-This charm and the related snap work has been written by [James Hebden](mailto:james+matrix@ec0.io) of the Pirate Charmers group.
+This charm and the related snap work has been written by [James Hebden](mailto:james+matrix@ec0.io) of the Alchemy Charmers group.
 
-Primary development is done on the [Pirate Charmers GitLab](https://git.ec0.io/pirate-charmers), and mirrored to [GitHub](https://github.com/pirate-charmers).
+Primary development is done on the [Alchemy Charmers GitLab](https://git.ec0.io/alchemy-charmers), and mirrored to [GitHub](https://github.com/alchemy-charmers).

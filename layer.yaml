@@ -27,4 +27,4 @@ options:
       revision: null
   version:
     file_name: "repo-info"
-repo: https://github.com/pirate-charmers/charm-matrix
+repo: https://git.ec0.io/alchemy-charmers/charm-matrix
