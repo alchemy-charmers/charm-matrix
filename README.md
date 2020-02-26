@@ -11,11 +11,17 @@ Deployment
 ==========
 
 This charm currently relies on the following snaps being built locally and then deployed as resources:
-* [snap-matrix-synapse - merged upstream](https://github.com/matrix-org/matrix-synapse) (ensure PR #6315 and #6317 are merged)
+* [snap-matrix-synapse - merged upstream](https://github.com/matrix-org/matrix-synapse) (ensure PR #6315 and #6317 are also merged into your local branch)
 * [snap-matrix-appservice-irc - in review](https://github.com/matrix-org/matrix-appservice-irc/pull/807)
 
 None of these charms are currently published to to store, pending further discussions upstream.
+There is nothing preventing them from being hosted on the store, however the most sensible
+namespaces are already registered, and working with the upstream project to get them pushing
+automatically on merge is the desired outcome.
 In the meantime, layer-snap provides the ability to upload the built charms as resources, where they will be deployed locally.
+This means the level of confinement is lower (devmode instead of strict), and updates need to be
+controlled by updating the uploaded snap resource, so getting these published on the store is
+definitely on the roadmap for this charm.
 
 Configuration
 =============
@@ -35,7 +41,7 @@ TODO
 ====
 
 * matrix-appservice-slack support (WIP)
-* matrix-puppet-slack support
+* matrix-puppet-slack support (WIP)
 
 Author
 ======
