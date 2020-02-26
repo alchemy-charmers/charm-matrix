@@ -1,28 +1,59 @@
 ---
-image: 'python:3.6'
 
 stages:
   - test
 
-before_script:
-  - python --version
-  - pip install tox
-  - mkdir -p report/lint
-  - mkdir -p report/unit
-
 flake8:
   stage: test
+  image: 'python:3.6'
+  tags:
+    - docker
+  before_script:
+    - python --version
+    - pip install tox
+    - mkdir -p report/lint
   script:
-    - make lint 
+    - make lint
   artifacts:
     paths:
       - report/lint
 
-pytest:
-  stage: test 
+unittest:
+  stage: test
+  image: 'python:3.6'
+  tags:
+    - docker
+  before_script:
+    - python --version
+    - pip install tox
+    - mkdir -p report/unit
   script:
     - make unittest
   coverage: '/^TOTAL.+?(\d+\%)$/'
   artifacts:
     paths:
       - report/unit
+    reports:
+      junit:
+        - report/unit/junit.xml
+
+functional:
+  stage: test
+  tags:
+    - lxd
+  before_script:
+    - git submodule sync --recursive
+    - git submodule update --init --recursive
+    - apt-get install -y tox make
+    - snap install juju --classic || true
+    - snap install juju --classic
+    - snap install charm --classic
+    - juju bootstrap localhost
+  script:
+    - JUJU_REPOSITORY=/tmp/juju make functional
+  artifacts:
+    paths:
+      - report/functional
+    reports:
+      junit:
+        - report/functional/junit.xml
