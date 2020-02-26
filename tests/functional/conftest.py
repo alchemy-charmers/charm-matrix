@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 """
-Reusable pytest fixtures for functional testing
+Reusable pytest fixtures for functional testing.
 
 Environment variables
 ---------------------
@@ -23,8 +23,7 @@ import pytest
 
 @pytest.fixture(scope="module")
 def event_loop():
-    """Override the default pytest event loop to allow for fixtures using a
-    broader scope"""
+    """Override the default pytest event loop to allow for fixtures using a broader scope."""
     loop = asyncio.get_event_loop_policy().new_event_loop()
     asyncio.set_event_loop(loop)
     loop.set_debug(True)
@@ -35,7 +34,7 @@ def event_loop():
 
 @pytest.fixture(scope="module")
 async def controller():
-    """Connect to the current controller"""
+    """Connect to the current controller."""
     _controller = Controller()
     await _controller.connect_current()
     yield _controller
@@ -44,7 +43,7 @@ async def controller():
 
 @pytest.fixture(scope="module")
 async def model(controller):
-    """Returns the model for the test"""
+    """Return the model for the test."""
     model_name = os.getenv("PYTEST_MODEL")
     if model_name:
         # Reuse existing model
@@ -83,5 +82,6 @@ async def model(controller):
 
 @pytest.fixture(scope="module")
 async def jujutools(controller, model):
+    """Provide fixture for communicating with and testing Juju model primitives."""
     tools = JujuTools(controller, model)
     return tools
