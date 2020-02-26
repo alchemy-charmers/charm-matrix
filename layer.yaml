@@ -13,6 +13,7 @@ options:
   basic:
     packages:
       - libpq-dev
+      - libffi-dev
     python_packages:
       - signedjson
       - psycopg2
