@@ -79,9 +79,12 @@ class MatrixHelper:
     def set_password(self, user, password):
         """Set the password for a provided synapse user."""
         hashed_password = self.hash_password(password)
+        server_name = self.get_server_name()
         hookenv.log("Storing hash: {}".format(hashed_password), hookenv.DEBUG)
         result = self.pgsql_query(
-            "UPDATE users SET password_hash = '{}';".format(hashed_password)
+            "UPDATE users SET password_hash = '{}' WHERE name = '@{}:{}';".format(
+                hashed_password, user, server_name
+            )
         )
         return result
 
