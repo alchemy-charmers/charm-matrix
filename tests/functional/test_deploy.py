@@ -11,7 +11,7 @@ juju_repository = os.getenv("JUJU_REPOSITORY", ".").rstrip("/")
 series = [
     "xenial",
     "bionic",
-    pytest.param("eoan", marks=pytest.mark.xfail(reason="canary")),
+    pytest.param("focal", marks=pytest.mark.xfail(reason="canary")),
 ]
 sources = [
     ("local", "{}/builds/matrix".format(juju_repository)),
@@ -88,19 +88,15 @@ async def test_postgresql_deploy(model, series, request):
 async def test_matrix_snap_upload(model, series, source, request):
     """Upload snap resources for Matrix and appservice bridges so install can be tested."""
     application_name = "matrix-{}-{}".format(series, source[0])
-    for snap in [
-            'matrix-synapse',
-            'matrix-appservice-irc'
-    ]:
-        cmd = [
-            "juju",
-            "attach-resource",
-            "-m",
-            model.info.name,
-            application_name,
-            "{0}=snaps/{0}.snap".format(snap)
-        ]
-        subprocess.check_call(cmd)
+    cmd = [
+        "juju",
+        "attach-resource",
+        "-m",
+        model.info.name,
+        application_name,
+        "matrix-synapse=snaps/matrix-synapse.snap"
+    ]
+    subprocess.check_call(cmd)
 
 
 @pytest.mark.timeout(300)

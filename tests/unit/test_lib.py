@@ -98,8 +98,6 @@ def test_restart(matrix, mock_host_service):
 def test_start_services(matrix, mock_host_service):
     """Configure and start services."""
     mock_host_service.reset_mock()
-    matrix.charm_config["enable-irc"] = False
-    matrix.charm_config["enable-slack"] = False
     status = matrix.start_services()
     mock_host_service.assert_has_calls(
         [
@@ -110,54 +108,6 @@ def test_start_services(matrix, mock_host_service):
     )
     assert mock_host_service.call_count == 2
     assert status is True
-    mock_host_service.reset_mock()
-    matrix.charm_config["enable-irc"] = True
-    matrix.charm_config["enable-slack"] = False
-    status = matrix.start_services()
-    mock_host_service.assert_has_calls(
-        [
-            mock.call("start", matrix.synapse_service),
-            mock.call("enable", matrix.synapse_service),
-            mock.call("start", matrix.appservice_irc_service),
-            mock.call("enable", matrix.appservice_irc_service),
-        ],
-        any_order=False,
-    )
-    assert mock_host_service.call_count == 4
-    assert status is True
-    mock_host_service.reset_mock()
-    matrix.charm_config["enable-irc"] = False
-    matrix.charm_config["enable-slack"] = True
-    status = matrix.start_services()
-    mock_host_service.assert_has_calls(
-        [
-            mock.call("start", matrix.synapse_service),
-            mock.call("enable", matrix.synapse_service),
-            mock.call("start", matrix.appservice_slack_service),
-            mock.call("enable", matrix.appservice_slack_service),
-        ],
-        any_order=False,
-    )
-    assert mock_host_service.call_count == 4
-    assert status is True
-    mock_host_service.reset_mock()
-    matrix.charm_config["enable-irc"] = True
-    matrix.charm_config["enable-slack"] = True
-    matrix.synapse_service = "failing-service"
-    status = matrix.start_services()
-    mock_host_service.assert_has_calls(
-        [
-            mock.call("start", "failing-service"),
-            mock.call("enable", "failing-service"),
-            mock.call("start", matrix.appservice_irc_service),
-            mock.call("enable", matrix.appservice_irc_service),
-            mock.call("start", matrix.appservice_slack_service),
-            mock.call("enable", matrix.appservice_slack_service),
-        ],
-        any_order=False,
-    )
-    assert mock_host_service.call_count == 6
-    assert status is False
 
 
 def test_get_server_name(matrix, mock_socket):
@@ -285,23 +235,6 @@ def test_render_synapse_config(matrix, tmpdir):
     matrix.synapse_config = path
     matrix.charm_config["enable-tls"] = False
     matrix.charm_config["server-name"] = "manual.mock.host"
-    matrix.render_configs()
-    with open(matrix.synapse_config, "rb") as config_file:
-        content = config_file.readlines()
-    print(content)
-    assert b'server_name: "manual.mock.host"\n' in content
-
-
-def test_render_irc_config(matrix, tmpdir):
-    """Test rendering of configuration for the IRC bridge."""
-    path = tmpdir.join("config.yaml")
-    matrix.appservice_irc_config = path
-    matrix.charm_config["server-name"] = "manual.mock.host"
-    matrix.charm_config["irc-networks"] = (
-        "irc.test.net,"
-        "irc.test2.net:user=testuser:pass=testpass:ssl=true:sasl=true:bot=false",
-        "irc.test3.net:bot=true:botnick=bottest",
-    )
     matrix.render_configs()
     with open(matrix.synapse_config, "rb") as config_file:
         content = config_file.readlines()

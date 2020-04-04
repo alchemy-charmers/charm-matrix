@@ -10,7 +10,6 @@ from subprocess import check_output
 from charmhelpers.core import hookenv, host, templating, unitdata
 from charms.reactive.helpers import any_file_changed
 from signedjson.key import generate_signing_key, write_signing_keys
-from OpenSSL import crypto
 
 from charms.layer import snap
 
@@ -24,29 +23,15 @@ class MatrixHelper:
     """Helper class for installing, configuring and managing services for Matrix."""
 
     synapse_config = "/var/snap/matrix-synapse/common/homeserver.yaml"
-    appservice_irc_config = "/var/snap/matrix-appservice-irc/common/config.yaml"
-
-    # IRC registration is rendered twice, once for each snap
-    appservice_irc_registration = (
-        "/var/snap/matrix-appservice-irc/common/registration.yaml"
-    )
-    synapse_irc_registration = "/var/snap/matrix-synapse/common/registration.yaml"
 
     synapse_snap = "matrix-synapse"
-    appservice_irc_snap = "matrix-appservice-irc"
-    appservice_slack_snap = "matrix-appservice-slack"
 
     synapse_service = "snap.matrix-synapse.matrix-synapse"
-    appservice_irc_service = "snap.matrix-appservice-irc.matrix-appservice-irc"
-    appservice_slack_service = "snap.matrix-appservice-slack.matrix-appservice-slack"
 
     synapse_conf_dir = "/var/snap/matrix-synapse/common/"
     synapse_signing_key_file = None
 
-    appservice_irc_key_path = "/var/snap/matrix-appservice-irc/common/db.key"
-
     db_name = "matrix"
-    irc_db_name = "matrix_irc"
 
     external_port = 8008
 
@@ -207,11 +192,6 @@ class MatrixHelper:
                 write_signing_keys(key_file, (key_content,))
         return self.synapse_signing_key_file
 
-    def restart_appservice_irc(self):
-        """Restart services."""
-        host.service("restart", self.appservice_irc_service)
-        return True
-
     def restart_synapse(self):
         """Restart services."""
         host.service("restart", self.synapse_service)
@@ -233,30 +213,10 @@ class MatrixHelper:
         synapse_running = self.start_service(self.synapse_service)
         return synapse_running
 
-    def start_appservice_irc(self):
-        """Start and enable the IRC bridge."""
-        if self.charm_config.get("enable-irc"):
-            irc_running = self.start_service(self.appservice_irc_service)
-            return irc_running
-        # this might seem silly, but if IRC is disabled the correct or 'True' state is that
-        # the service is not running, so return True to indicate all is well
-        return True
-
-    def start_appservice_slack(self):
-        """Start and enable the Slack bridge."""
-        if self.charm_config.get("enable-slack"):
-            slack_running = self.start_service(self.appservice_slack_service)
-            return slack_running
-        # this might also seem silly, but if Slack is disabled the correct or 'True' state is that
-        # the service is not running, so return True to indicate all is well
-        return True
-
     def start_services(self):
         """Configure and start services."""
         synapse_result = self.start_synapse()
-        irc_result = self.start_appservice_irc()
-        slack_result = self.start_appservice_slack()
-        return synapse_result and irc_result and slack_result
+        return synapse_result
 
     def get_server_name(self):
         """Return the configured server name."""
@@ -382,8 +342,6 @@ class MatrixHelper:
                     "pgsql_pass": self.kv.get("pgsql_pass"),
                     "server_name": self.get_server_name(),
                     "public_baseurl": self.get_public_baseurl(),
-                    "enable_irc": self.charm_config.get("enable-irc"),
-                    "irc_registration_file": self.synapse_irc_registration,
                     "enable_tls": self.get_tls(),
                     "enable_search": self.charm_config["enable-search"],
                     "enable_user_directory": self.charm_config["enable-user-directory"],
@@ -415,152 +373,9 @@ class MatrixHelper:
             return True
         return False
 
-    def parse_networks(self, networks):
-        """Parse the comma separated list of IRC networks and options into a list of dicts for use in options.yaml."""
-        network_list = []
-        if not networks:
-            return network_list
-        networks_split = networks.split(",")
-        for network in networks_split:
-            network_dict = {}
-            options = network.split(":")
-            options_iter = iter(options)
-            network_dict["host"] = options[0]
-            network_dict["name"] = options[0]
-            network_dict["bot"] = "false"
-            network_dict["ssl"] = "false"
-            network_dict["sasl"] = "false"
-            next(options_iter)
-            for option in options_iter:
-                if "=" in option:
-                    key, value = option.split("=")
-                    if type(value) == bool:
-                        network_dict[key] = str(value).lower()
-                    else:
-                        network_dict[key] = value
-                else:
-                    network_dict[option] = "true"
-            if "port" not in network_dict:
-                if network_dict["ssl"] is True:
-                    network_dict["port"] = 6697
-                else:
-                    network_dict["port"] = 6667
-            network_list.append(network_dict)
-        hookenv.log("Parsed networks: {}".format(network_list), hookenv.DEBUG)
-        return network_list
-
-    def generate_irc_db_key(self):
-        """Generate a new encryption key and return path for the IRC appservice if missing, else return path."""
-        if not path.isfile(self.appservice_irc_key_path) or (
-            path.getsize(self.appservice_irc_key_path) == 0
-        ):
-            key = crypto.PKey()
-            key.generate_key(crypto.TYPE_RSA, 2048)
-            private_key = crypto.dump_privatekey(crypto.FILETYPE_PEM, key)
-            file_handle = open(self.appservice_irc_key_path, "w")
-            file_handle.write(private_key.decode("utf-8"))
-        return self.appservice_irc_key_path
-
-    def render_appservice_irc_config(self):
-        """Render the configuration for the IRC bridge."""
-        if self.pgsql_configured() and self.charm_config.get("enable-irc"):
-            hookenv.log(
-                "Rendering IRC configuration to {}".format(self.appservice_irc_config),
-                hookenv.DEBUG,
-            )
-            irc_networks = self.parse_networks(self.charm_config.get("irc-networks"))
-            key_path = self.generate_irc_db_key()
-            templating.render(
-                "irc-config.yaml.j2",
-                self.appservice_irc_config,
-                {
-                    "pgsql_host": self.kv.get("pgsql_host"),
-                    "pgsql_port": self.kv.get("pgsql_port"),
-                    "pgsql_db": self.irc_db_name,
-                    "pgsql_user": self.kv.get("pgsql_user"),
-                    "pgsql_pass": self.kv.get("pgsql_pass"),
-                    "irc_media_url": self.get_public_baseurl(),
-                    "irc_networks": irc_networks,
-                    "irc_domain": self.get_server_name(),
-                    "irc_enable_presence": self.charm_config.get("irc-presence"),
-                    "irc_nick_template": self.charm_config.get("irc-nick-template"),
-                    "key_path": key_path,
-                },
-            )
-        else:
-            hookenv.log("Skipped rendering IRC bridge configuration", hookenv.DEBUG)
-        if any_file_changed([self.appservice_irc_config]):
-            self.restart_appservice_irc()
-            return True
-        return False
-
-    def render_appservice_irc_registration(self):
-        """Render the configuration for registering the IRC bridge."""
-        if self.pgsql_configured() and self.charm_config.get("enable-irc"):
-            hookenv.log(
-                "Rendering IRC registration configuration to {}".format(
-                    self.appservice_irc_config
-                ),
-                hookenv.DEBUG,
-            )
-            irc_networks = self.parse_networks(self.charm_config.get("irc-networks"))
-            for yamlpath in [
-                self.synapse_irc_registration,
-                self.appservice_irc_registration,
-            ]:
-                templating.render(
-                    "appservice-registration-irc.yaml.j2",
-                    yamlpath,
-                    {
-                        "irc_id": self.get_token("irc_id"),
-                        "irc_hs_token": self.get_token("irc_hs_token"),
-                        "irc_as_token": self.get_token("irc_as_token"),
-                        "irc_networks": irc_networks,
-                    },
-                )
-        else:
-            hookenv.log("Skipped rendering IRC bridge registration", hookenv.DEBUG)
-        if any_file_changed([self.appservice_irc_registration]):
-            self.restart_synapse()
-            self.restart_appservice_irc()
-            return True
-        return False
-
-    def render_appservice_slack_config(self):
-        """Render the configuration for Matrix synapse."""
-        if self.pgsql_configured():
-            templating.render(
-                "homeserver.yaml.j2",
-                self.homeserver_config,
-                {
-                    "db_host": self.kv.get("pgsql_host"),
-                    "db_port": self.kv.get("pgsql_port"),
-                    "db_database": self.kv.get("pgsql_db"),
-                    "db_user": self.kv.get("pgsql_user"),
-                    "db_password": self.kv.get("pgsql_pass"),
-                    "server_name": self.get_server_name(),
-                    "enable_tls": self.get_tls(),
-                },
-            )
-        else:
-            hookenv.log(
-                "Skipped rendering synapse configuration due to unconfigured pgsql",
-                hookenv.DEBUG,
-            )
-        if any_file_changed([self.homeserver_config]):
-            self.restart_synapse()
-            return True
-        return False
-
     def render_configs(self):
         """Render configuration for the homeserver and enabled bridges."""
         self.render_synapse_config()
-        if self.charm_config.get("enable-irc"):
-            self.pgsql_create_db(self.irc_db_name)
-            self.render_appservice_irc_registration()
-            self.render_appservice_irc_config()
-        if self.charm_config.get("enable-slack"):
-            self.render_appservice_slack_config()
 
     def check_snap_installed(self, snapname):
         """Verify a snap is installed."""
@@ -579,17 +394,7 @@ class MatrixHelper:
         if not self.check_snap_installed(self.synapse_snap):
             hookenv.log("Installing {} snap".format(self.synapse_snap), hookenv.DEBUG)
             synapse_result = self.install_snap(self.synapse_snap)
-        irc_installed = self.check_snap_installed(self.appservice_irc_snap)
-        if self.charm_config.get("enable-irc"):
-            if not irc_installed:
-                hookenv.log(
-                    "Installing {} snap".format(self.appservice_irc_snap), hookenv.DEBUG
-                )
-                irc_result = self.install_snap(self.appservice_irc_snap)
-        elif irc_installed:
-            self.remove_snap(self.appservice_irc_snap)
-        # TODO: additional bridges
-        return synapse_result and irc_result
+        return synapse_result
 
     def configure(self):
         """

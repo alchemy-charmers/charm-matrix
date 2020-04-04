@@ -14,14 +14,14 @@ description: |
   there is no single point of control or mandatory service provider in Matrix,
   unlike WhatsApp, Facebook, Hangouts, etc.
 
-  This charm additionally installs the tools to federate your home server with Discord, Slack and IRC.
+  This charm is designed to be used in conjunction with Matterbridge in order
+  to integrate with 3rd party chat systems, such as Mattermost, IRC, Slack, etc.
 tags:
   - social
 subordinate: false
 series:
   - bionic
   - xenial
-  - disco 
 requires:
   reverseproxy:
     interface: reverseproxy
@@ -32,11 +32,3 @@ resources:
     type: file
     filename: matrix-synapse.snap
     description: Matrix synapse snap
-  matrix-appservice-irc:
-    type: file
-    filename: matrix-appservice-irc.snap
-    description: Matrix IRC appservice snap
-  matrix-appservice-slack:
-    type: file
-    filename: matrix-appservice-slack.snap
-    description: Matrix Slack appservice snap

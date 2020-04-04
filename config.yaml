@@ -43,10 +43,6 @@ options:
     type: string
     default: ""
     description: "The password, if required, used when logging in to the SMTP host provided."
-  enable-irc:
-    type: boolean
-    default: false
-    description: "When true, enable the matrix IRC appservice to bridge IRC to Matrix"
   require-auth-profile-requests:
     type: boolean
     default: true
@@ -91,15 +87,3 @@ options:
     type: boolean
     default: false
     description: "Enable searching the room list"
-  irc-presence:
-    type: boolean
-    default: false
-    description: "Enable presence information in the IRC bridge."
-  irc-nick-template:
-    type: string
-    default: "$DISPLAY[m]"
-    description: "The template used when setting use nicknames on bridged IRC servers."
-  irc-networks:
-    type: string
-    default: ""
-    description: "A comma separated list of networks to bridge. Per-network options can be overridden by separating options with colons. See the README for more information."
