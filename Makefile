@@ -40,7 +40,7 @@ functional: build
 	@echo Executing with: $(BUILD_VARS) tox -e functional
 	@$(BUILD_VARS) tox -e functional
 
-build:
+build: submodules
 	@echo "Building charm to base directory $(JUJU_REPOSITORY)"
 	@-git describe --tags > ./repo-info
 	@LAYER_PATH=./layers INTERFACE_PATH=./interfaces TERM=linux \
