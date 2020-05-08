@@ -1,8 +1,13 @@
+---
 options:
   enable-registration:
     type: boolean
     default: false
-    description: "Enable public new user registration"
+    description: "Enable public new user registration, disabled by default"
+  enable-federation:
+    type: boolean
+    default: true
+    description: "Enable federation, enabled by default. When enabled, port 8448 will listen, including via reverse proxy."
   server-name:
     type: string
     default: ""

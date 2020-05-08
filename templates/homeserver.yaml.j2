@@ -8,8 +8,8 @@ allow_public_rooms_over_federation: "{{ allow_public_rooms_over_federation }}"
 default_room_version: "{{ default_room_version }}"
 block_non_admin_invites: "{{ block_non_admin_invites }}"
 enable_search: "{{ enable_search }}"
-{% if federation_domain_whitelist %}
 federation_domain_whitelist:
+{% if enable_federation and federation_domain_whitelist %}
 {% for domain in federation_domain_whitelist %}
   - {{ domain }} 
 {% endfor %}

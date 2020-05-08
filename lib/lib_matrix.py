@@ -237,6 +237,10 @@ class MatrixHelper:
             return "https://{}".format(server_name)
         return "http://{}".format(server_name)
 
+    def get_federation(self):
+        """Get federation state."""
+        return self.charm_config["enable-federation"]
+
     def get_tls(self):
         """Return the configured TLS state."""
         configured_value = self.charm_config["enable-tls"]
@@ -262,6 +266,7 @@ class MatrixHelper:
         """Configure Synapse for operation behind a reverse proxy."""
         server_name = self.get_server_name()
         tls_enabled = self.get_tls()
+        federation_enabled = self.get_federation()
 
         if tls_enabled:
             self.external_port = 443
@@ -279,16 +284,15 @@ class MatrixHelper:
             },
         ]
 
-        if tls_enabled:
-            proxy_config.append(
-                {
-                    "mode": "http",
-                    "external_port": 8448,
-                    "internal_host": internal_host,
-                    "internal_port": 8008,
-                    "subdomain": server_name,
-                }
-            )
+        if federation_enabled:
+            proxy_config.append({
+                "mode": "tcp",
+                "external_port": 8448,
+                "internal_host": internal_host,
+                "internal_port": 8448,
+                "subdomain": server_name,
+            })
+
         proxy.configure(proxy_config)
 
     def pgsql_configured(self):
@@ -361,6 +365,7 @@ class MatrixHelper:
                         "enable-room-list-search"
                     ],
                     "enable_registration": self.charm_config["enable-registration"],
+                    "enable_federation": self.charm_config["enable-federation"],
                     "use_presence": self.charm_config["track-presence"],
                     "require_auth_for_profile_requests": self.charm_config[
                         "require-auth-profile-requests"

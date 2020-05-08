@@ -143,10 +143,21 @@ def test_get_tls(matrix):
     assert result is False
 
 
+def test_get_federation(matrix):
+    """Test getting federation state."""
+    matrix.charm_config["enable-federation"] = False
+    result = matrix.get_federation()
+    assert result is False
+    matrix.charm_config["enable-federation"] = True
+    result = matrix.get_federation()
+    assert result is True
+
+
 def test_configure_proxy(matrix):
     """Test configure_proxy."""
     mock_proxy = mock.Mock()
     matrix.charm_config["enable-tls"] = False
+    matrix.charm_config["enable-federation"] = False
     matrix.configure_proxy(mock_proxy)
     assert mock_proxy.configure.called
     assert mock_proxy.configure.call_args == mock.call(
@@ -164,6 +175,7 @@ def test_configure_proxy(matrix):
     # Test HTTPS
     mock_proxy.reset_mock()
     matrix.charm_config["enable-tls"] = True
+    matrix.charm_config["enable-federation"] = False
     matrix.configure_proxy(mock_proxy)
     assert mock_proxy.configure.called
     assert mock_proxy.configure.call_args == mock.call(
@@ -181,6 +193,7 @@ def test_configure_proxy(matrix):
     # Test manual server name
     mock_proxy.reset_mock()
     matrix.charm_config["enable-tls"] = False
+    matrix.charm_config["enable-federation"] = False
     matrix.charm_config["server-name"] = "manual.mock.host"
     matrix.configure_proxy(mock_proxy)
     assert mock_proxy.configure.called
@@ -192,6 +205,31 @@ def test_configure_proxy(matrix):
                 "internal_host": "mockhost",
                 "internal_port": 8008,
                 "subdomain": "manual.mock.host",
+            }
+        ]
+    )
+
+    # Test HTTPS with federation enabled
+    mock_proxy.reset_mock()
+    matrix.charm_config["enable-tls"] = True
+    matrix.charm_config["enable-federation"] = True
+    matrix.configure_proxy(mock_proxy)
+    assert mock_proxy.configure.called
+    assert mock_proxy.configure.call_args == mock.call(
+        [
+            {
+                "mode": "http",
+                "external_port": 443,
+                "internal_host": "mockhost",
+                "internal_port": 8008,
+                "subdomain": "manual.mock.host",
+            },
+            {
+                "mode": "tcp",
+                "external_port": 8448,
+                "internal_host": "mockhost",
+                "internal_port": 8448,
+                "subdomain": "manual.mock.host"
             }
         ]
     )
