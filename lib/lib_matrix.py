@@ -268,15 +268,27 @@ class MatrixHelper:
         else:
             self.external_port = 80
 
+        internal_host = socket.getfqdn()
         proxy_config = [
             {
                 "mode": "http",
                 "external_port": self.external_port,
-                "internal_host": socket.getfqdn(),
+                "internal_host": internal_host,
                 "internal_port": 8008,
                 "subdomain": server_name,
-            }
+            },
         ]
+
+        if tls_enabled:
+            proxy_config.append(
+                {
+                    "mode": "http",
+                    "external_port": 8448,
+                    "internal_host": internal_host,
+                    "internal_port": 8008,
+                    "subdomain": server_name,
+                }
+            )
         proxy.configure(proxy_config)
 
     def pgsql_configured(self):
