@@ -5,5 +5,5 @@ pytest
 pytest-cov
 pytest-html
 signedjson
-psycopg2
+psycopg2-binary
 PyOpenSSL
