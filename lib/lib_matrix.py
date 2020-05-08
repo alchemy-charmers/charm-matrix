@@ -227,15 +227,21 @@ class MatrixHelper:
             fqdn = socket.getfqdn()
             return fqdn
 
+    def get_external_domain(self):
+        """Return the external domain name if configured, otherwise, return None."""
+        if self.charm_config["external-domain"]:
+            return self.charm_config["external-domain"]
+        return self.get_server_name()
+
     def get_public_baseurl(self):
         """Return the public URI for this server."""
-        server_name = self.get_server_name()
+        server_name = self.get_external_domain()
         tls = self.get_tls()
-        if self.external_port == 8008:
-            return "http://{}:8008".format(server_name)
+        if self.external_port == 80 and not tls:
+            return "http://{}".format(server_name)
         elif tls:
             return "https://{}".format(server_name)
-        return "http://{}".format(server_name)
+        return "http://{}:{}".format(server_name, self.external_port)
 
     def get_federation(self):
         """Get federation state."""
@@ -264,7 +270,7 @@ class MatrixHelper:
 
     def configure_proxy(self, proxy):
         """Configure Synapse for operation behind a reverse proxy."""
-        server_name = self.get_server_name()
+        server_name = self.get_external_domain()
         tls_enabled = self.get_tls()
         federation_enabled = self.get_federation()
 
@@ -290,7 +296,6 @@ class MatrixHelper:
                 "external_port": 8448,
                 "internal_host": internal_host,
                 "internal_port": 8448,
-                "subdomain": server_name,
             })
 
         proxy.configure(proxy_config)

@@ -11,7 +11,11 @@ options:
   server-name:
     type: string
     default: ""
-    description: "The public server name. This value needs to be set, and once set, can not be changed."
+    description: "The public server name. This value needs to be set, and once set, can not be changed. This name forms the @domain portion of all matrix users on the home server."
+  external-domain:
+    type: string
+    default: ""
+    description: "This external domain name the server will be accessed from. Defaults to server name. This can be set to a different domain to the server name, for example a subdomain of the server name's domain."
   cache-factor:
     type: float
     default: 2.0

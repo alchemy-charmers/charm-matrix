@@ -158,6 +158,7 @@ def test_configure_proxy(matrix):
     mock_proxy = mock.Mock()
     matrix.charm_config["enable-tls"] = False
     matrix.charm_config["enable-federation"] = False
+    matrix.charm_config["external-domain"] = ""
     matrix.configure_proxy(mock_proxy)
     assert mock_proxy.configure.called
     assert mock_proxy.configure.call_args == mock.call(
@@ -172,10 +173,30 @@ def test_configure_proxy(matrix):
         ]
     )
 
+    """Test configure_proxy with manual external domain."""
+    mock_proxy = mock.Mock()
+    matrix.charm_config["enable-tls"] = False
+    matrix.charm_config["enable-federation"] = False
+    matrix.charm_config["external-domain"] = "matrix.mockhost"
+    matrix.configure_proxy(mock_proxy)
+    assert mock_proxy.configure.called
+    assert mock_proxy.configure.call_args == mock.call(
+        [
+            {
+                "mode": "http",
+                "external_port": 80,
+                "internal_host": "mockhost",
+                "internal_port": 8008,
+                "subdomain": "matrix.mockhost",
+            }
+        ]
+    )
+
     # Test HTTPS
     mock_proxy.reset_mock()
     matrix.charm_config["enable-tls"] = True
     matrix.charm_config["enable-federation"] = False
+    matrix.charm_config["external-domain"] = ""
     matrix.configure_proxy(mock_proxy)
     assert mock_proxy.configure.called
     assert mock_proxy.configure.call_args == mock.call(
@@ -195,6 +216,7 @@ def test_configure_proxy(matrix):
     matrix.charm_config["enable-tls"] = False
     matrix.charm_config["enable-federation"] = False
     matrix.charm_config["server-name"] = "manual.mock.host"
+    matrix.charm_config["external-domain"] = ""
     matrix.configure_proxy(mock_proxy)
     assert mock_proxy.configure.called
     assert mock_proxy.configure.call_args == mock.call(
@@ -209,10 +231,58 @@ def test_configure_proxy(matrix):
         ]
     )
 
+    # Test manual server name with external domain specified
+    mock_proxy.reset_mock()
+    matrix.charm_config["enable-tls"] = False
+    matrix.charm_config["enable-federation"] = False
+    matrix.charm_config["server-name"] = "manual.mock.host"
+    matrix.charm_config["external-domain"] = "matrix.manual.mock.host"
+    matrix.configure_proxy(mock_proxy)
+    assert mock_proxy.configure.called
+    assert mock_proxy.configure.call_args == mock.call(
+        [
+            {
+                "mode": "http",
+                "external_port": 80,
+                "internal_host": "mockhost",
+                "internal_port": 8008,
+                "subdomain": "matrix.manual.mock.host",
+            }
+        ]
+    )
+
     # Test HTTPS with federation enabled
     mock_proxy.reset_mock()
     matrix.charm_config["enable-tls"] = True
     matrix.charm_config["enable-federation"] = True
+    matrix.charm_config["server-name"] = ""
+    matrix.charm_config["external-domain"] = ""
+    matrix.configure_proxy(mock_proxy)
+    assert mock_proxy.configure.called
+    assert mock_proxy.configure.call_args == mock.call(
+        [
+            {
+                "mode": "http",
+                "external_port": 443,
+                "internal_host": "mockhost",
+                "internal_port": 8008,
+                "subdomain": "mockhost",
+            },
+            {
+                "mode": "tcp",
+                "external_port": 8448,
+                "internal_host": "mockhost",
+                "internal_port": 8448,
+            }
+        ]
+    )
+
+    # Test HTTPS with federation enabled and manual server name
+    mock_proxy.reset_mock()
+    matrix.charm_config["enable-tls"] = True
+    matrix.charm_config["enable-federation"] = True
+    matrix.charm_config["server-name"] = "manual.mock.host"
+    matrix.charm_config["external-domain"] = ""
     matrix.configure_proxy(mock_proxy)
     assert mock_proxy.configure.called
     assert mock_proxy.configure.call_args == mock.call(
@@ -229,7 +299,32 @@ def test_configure_proxy(matrix):
                 "external_port": 8448,
                 "internal_host": "mockhost",
                 "internal_port": 8448,
-                "subdomain": "manual.mock.host"
+            }
+        ]
+    )
+
+    # Test HTTPS with federation enabled
+    mock_proxy.reset_mock()
+    matrix.charm_config["enable-tls"] = True
+    matrix.charm_config["enable-federation"] = True
+    matrix.charm_config["server-name"] = "manual.mock.host"
+    matrix.charm_config["external-domain"] = "matrix.manual.mock.host"
+    matrix.configure_proxy(mock_proxy)
+    assert mock_proxy.configure.called
+    assert mock_proxy.configure.call_args == mock.call(
+        [
+            {
+                "mode": "http",
+                "external_port": 443,
+                "internal_host": "mockhost",
+                "internal_port": 8008,
+                "subdomain": "matrix.manual.mock.host",
+            },
+            {
+                "mode": "tcp",
+                "external_port": 8448,
+                "internal_host": "mockhost",
+                "internal_port": 8448,
             }
         ]
     )
