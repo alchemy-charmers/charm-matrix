@@ -8,6 +8,10 @@ options:
     type: boolean
     default: true
     description: "Enable federation, enabled by default. When enabled, port 8448 will listen, including via reverse proxy."
+  enable-ircd:
+    type: boolean
+    default: false
+    description: "Enable connecting to this homeserver via IRC, using the matrix-ircd snap. Will use port 6667 for non-TLS and 6697 if TLS is enabled, per RFC7194."
   server-name:
     type: string
     default: ""

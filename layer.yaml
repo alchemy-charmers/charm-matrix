@@ -26,6 +26,13 @@ options:
       dangerous: false
       classic: false
       revision: null
+    matrix-ircd:
+      channel: stable
+      devmode: false
+      jailmode: false
+      dangerous: false
+      classic: false
+      revision: null
   version:
     file_name: "repo-info"
 repo: https://git.ec0.io/alchemy-charmers/charm-matrix

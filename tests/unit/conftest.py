@@ -9,26 +9,31 @@ from charmhelpers.core import unitdata
 @pytest.fixture
 def mock_snap(monkeypatch):
     """Mock snap layer."""
-    def mocked_install(name):
-        if name == 'bad-snap':
-            return False
-        return True
+    class Snap():
 
-    def mocked_is_installed(name):
-        if name == 'installed-snap':
+        def install(self, name):
+            if name == 'fail-snap':
+                print("Mocking failure installing snap")
+                return False
+            print("Mocking installing snap {}".format(
+                name
+            ))
             return True
-        return False
 
-    mocked_snap_install = mock.Mock()
-    mocked_snap_install.side_effect = mocked_install
+        def is_installed(self, name):
+            if name == 'fail-snap':
+                print("Mocking snap not installed")
+                return False
+            print("Mocking snap install check {}".format(
+                name
+            ))
+            return True
 
-    mocked_snap_is_installed = mock.Mock()
-    mocked_snap_is_installed.side_effect = mocked_is_installed
+        def remove(self, name):
+            print("Sure, we removed that snap alright")
+            return True
 
-    monkeypatch.syspath_prepend(".")
-    monkeypatch.setattr("charms.layer.snap", mock.Mock())
-    monkeypatch.setattr("charms.layer.snap.install", mocked_snap_install)
-    monkeypatch.setattr("charms.layer.snap.is_installed", mocked_snap_is_installed)
+    monkeypatch.setattr("lib_matrix.snap", Snap())
 
 
 @pytest.fixture
@@ -58,7 +63,7 @@ def mock_host_service(monkeypatch):
 def mock_host_service_running(monkeypatch):
     """Mock host service_running on lib_matrix."""
     def mocked_service_running(name):
-        if name == 'failing-service':
+        if name == 'fail-service':
             return False
         return True
 

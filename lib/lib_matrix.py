@@ -23,13 +23,14 @@ class MatrixHelper:
     """Helper class for installing, configuring and managing services for Matrix."""
 
     synapse_config = "/var/snap/matrix-synapse/common/homeserver.yaml"
-
     synapse_snap = "matrix-synapse"
-
     synapse_service = "snap.matrix-synapse.matrix-synapse"
-
     synapse_conf_dir = "/var/snap/matrix-synapse/common/"
     synapse_signing_key_file = None
+
+    matrix_ircd_snap = "matrix-ircd"
+    matrix_ircd_service = "snap.matrix-ircd.matrix-ircd"
+    matrix_ircd_conf_dir = "/var/snap/matrix-ircd/common/"
 
     db_name = "matrix"
 
@@ -213,10 +214,18 @@ class MatrixHelper:
         synapse_running = self.start_service(self.synapse_service)
         return synapse_running
 
+    def start_ircd(self):
+        """Start and enable matrix IRCd."""
+        ircd_running = self.start_service(self.matrix_ircd_service)
+        return ircd_running
+
     def start_services(self):
         """Configure and start services."""
+        ircd_result = True
         synapse_result = self.start_synapse()
-        return synapse_result
+        if self.charm_config.get("enable-ircd"):
+            ircd_result = self.start_ircd()
+        return synapse_result and ircd_result
 
     def get_server_name(self):
         """Return the configured server name."""
@@ -348,7 +357,7 @@ class MatrixHelper:
             hookenv.DEBUG,
         )
         if self.pgsql_configured():
-            templating.render(
+            render_result = templating.render(
                 "homeserver.yaml.j2",
                 self.synapse_config,
                 {
@@ -390,14 +399,16 @@ class MatrixHelper:
                     "federation_ip_range_blacklist": self.get_federation_iprange_blacklist(),
                 },
             )
-        if any_file_changed([self.synapse_config]):
-            self.restart_synapse()
-            return True
+            if render_result:
+                if any_file_changed([self.synapse_config]):
+                    self.restart_synapse()
+                return True
         return False
 
     def render_configs(self):
         """Render configuration for the homeserver and enabled bridges."""
-        self.render_synapse_config()
+        synapse_config = self.render_synapse_config()
+        return synapse_config
 
     def check_snap_installed(self, snapname):
         """Verify a snap is installed."""
@@ -412,11 +423,22 @@ class MatrixHelper:
         snap.remove(snapname)
 
     def install_snaps(self):
-        """Install snaps for configured briges."""
+        """Install snaps for configured briges, returning True if an install was performed."""
+        synapse_result = True
         if not self.check_snap_installed(self.synapse_snap):
             hookenv.log("Installing {} snap".format(self.synapse_snap), hookenv.DEBUG)
             synapse_result = self.install_snap(self.synapse_snap)
-        return synapse_result
+
+        ircd_result = True
+        if self.charm_config.get("enable-ircd"):
+            if not self.check_snap_installed(self.matrix_ircd_snap):
+                hookenv.log("Installing {} snap".format(self.matrix_ircd_snap), hookenv.DEBUG)
+                ircd_result = self.install_snap(self.matrix_ircd_snap)
+        else:
+            if self.check_snap_installed(self.matrix_ircd_snap):
+                hookenv.log("Removing {} snap".format(self.matrix_ircd_snap), hookenv.DEBUG)
+                self.remove_snap(self.matrix_ircd_snap)
+        return synapse_result and ircd_result
 
     def configure(self):
         """
@@ -425,18 +447,22 @@ class MatrixHelper:
         Verified correct snaps are installed, renders
         configuration files and restarts services as needed.
         """
-        if self.install_snaps:
-            self.render_configs()
-            if self.start_services():
-                hookenv.status_set("active", self.HEALTHY)
-                hookenv.open_port(8008)
-                return True
+        if self.install_snaps():
+            if self.render_configs():
+                if self.start_services():
+                    hookenv.status_set("active", self.HEALTHY)
+                    hookenv.open_port(8008)
+                    hookenv.open_port(8448)
+                    return True
+                else:
+                    hookenv.status_set("blocked", "Matrix services are not running.")
             else:
-                hookenv.status_set("blocked", "Matrix services are not running.")
+                hookenv.status_set("blocked", "Trying to render configuration...")
         else:
             hookenv.status_set(
                 "blocked",
                 "Snaps are not installable. Check snap store accessibility or that resources are uploaded.",
             )
         hookenv.close_port(8008)
+        hookenv.open_port(8448)
         return False

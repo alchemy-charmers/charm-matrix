@@ -379,11 +379,37 @@ def test_configure(matrix):
     """Test running the configure method."""
     result = matrix.configure()
     assert result is True
-    matrix.synapse_service = "failing-service"
-    matrix.synapse_snap = "bad-snap"
+    matrix.synapse_service = "fail-service"
+    matrix.synapse_snap = "fail-snap"
+    matrix.matrix_ircd_snap = "matrix-ircd"
     result = matrix.configure()
     assert result is False
     matrix.synapse_service = "snap.matrix-synapse.matrix-synapse"
-    matrix.synapse_snap = "installed-snap"
+    matrix.synapse_snap = "matrix-synapse"
+    result = matrix.configure()
+    assert result is True
+    matrix.charm_config["enable-ircd"] = True
+    result = matrix.configure()
+    assert result is True
+    matrix.charm_config["enable-ircd"] = True
+    matrix.synapse_service = "snap.matrix-synapse.matrix-synapse"
+    matrix.matrix_ircd_service = "fail-service"
+    result = matrix.configure()
+    assert result is False
+    matrix.charm_config["enable-ircd"] = True
+    matrix.matrix_ircd_service = "snap.matrix-ircd.matrix-ircd"
+    matrix.matrix_ircd_snap = "fail-snap"
+    result = matrix.configure()
+    assert result is False
+    matrix.charm_config["enable-ircd"] = True
+    matrix.matrix_ircd_snap = "matrix-ircd"
+    matrix.matrix_ircd_service = "fail-service"
+    result = matrix.configure()
+    assert result is False
+    matrix.charm_config["enable-ircd"] = True
+    matrix.matrix_ircd_snap = "matrix-ircd"
+    matrix.matrix_ircd_service = "snap.matrix-ircd.matrix-ircd"
+    matrix.synapse_service = "snap.matrix-synapse.matrix-synapse"
+    matrix.synapse_snap = "matrix-synapse"
     result = matrix.configure()
     assert result is True

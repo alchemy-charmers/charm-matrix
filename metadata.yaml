@@ -1,18 +1,21 @@
+---
 name: matrix
 summary: Matrix decentalised communication Synapse home server
 maintainer: James Hebden <james@ec0.io>
 description: |
-  Synapse is a reference "homeserver" implementation of Matrix, from the core development team at
-  matrix.org. It is written in Python/Twisted and is intended to showcase the concept of Matrix.
+  Synapse is a reference "homeserver" implementation of Matrix, from the core
+  development team at matrix.org. It is written in Python/Twisted and is
+  intended to showcase the concept of Matrix.
 
-  In Matrix, every user runs one or more Matrix clients, which connect through to a Matrix homeserver.
-  The homeserver stores all their personal chat history and user account information -
-  much as a mail client connects through to an IMAP/SMTP server.
+  In Matrix, every user runs one or more Matrix clients, which connect through
+  to a Matrix homeserver. The homeserver stores all their personal chat history
+  and user account information - much as a mail client connects through to an
+  IMAP/SMTP server.
 
-  Just like email, you can either run your own Matrix homeserver and control and own your own
-  communications and history or use one hosted by someone else (e.g. matrix.org) -
-  there is no single point of control or mandatory service provider in Matrix,
-  unlike WhatsApp, Facebook, Hangouts, etc.
+  Just like email, you can either run your own Matrix homeserver and control
+  and own your own communications and history or use one hosted by someone
+  else (e.g. matrix.org) - there is no single point of control or mandatory
+  service provider in Matrix, unlike WhatsApp, Facebook, Hangouts, etc.
 
   This charm is designed to be used in conjunction with Matterbridge in order
   to integrate with 3rd party chat systems, such as Mattermost, IRC, Slack, etc.
@@ -32,3 +35,7 @@ resources:
     type: file
     filename: matrix-synapse.snap
     description: Matrix synapse snap
+  matrix-ircd:
+    type: file
+    filename: matrix-ircd.snap
+    description: Matrix IRCd snap
