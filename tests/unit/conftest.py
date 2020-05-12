@@ -270,6 +270,8 @@ def matrix(
     # Example config file patching
     synapse_config_file = tmpdir.join("homeserver.yaml")
     helper.synapse_config = synapse_config_file.strpath
+    ircd_config_file = tmpdir.join("matrix-ircd.env")
+    helper.matrix_ircd_config = ircd_config_file.strpath
     synapse_signing_key_file = tmpdir.join("signing.key")
     helper.synapse_signing_key_file = synapse_signing_key_file.strpath
 

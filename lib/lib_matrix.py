@@ -22,6 +22,9 @@ from charms.layer import snap
 class MatrixHelper:
     """Helper class for installing, configuring and managing services for Matrix."""
 
+    # Registration is rendered twice, once for each member snap for confinement reasons
+    # the below folders get used for deciding where both registration yamls will land
+    # in addition to the service configuration files for synapse and ircd
     synapse_config = "/var/snap/matrix-synapse/common/homeserver.yaml"
     synapse_snap = "matrix-synapse"
     synapse_service = "snap.matrix-synapse.matrix-synapse"
@@ -31,9 +34,9 @@ class MatrixHelper:
     matrix_ircd_snap = "matrix-ircd"
     matrix_ircd_service = "snap.matrix-ircd.matrix-ircd"
     matrix_ircd_conf_dir = "/var/snap/matrix-ircd/common/"
+    matrix_ircd_config = "/var/snap/matrix-ircd/common/matrix-ircd.env"
 
     db_name = "matrix"
-
     external_port = 8008
 
     HEALTHY = "Matrix homeserver installed and configured"
@@ -193,15 +196,21 @@ class MatrixHelper:
                 write_signing_keys(key_file, (key_content,))
         return self.synapse_signing_key_file
 
+    def restart_matrix_ircd(self):
+        """Restart IRCd services."""
+        if self.charm_config.get("enable-ircd"):
+            return host.service("restart", self.matrix_ircd_service)
+        return True
+
     def restart_synapse(self):
         """Restart services."""
-        host.service("restart", self.synapse_service)
-        return True
+        return host.service("restart", self.synapse_service)
 
     def restart(self):
         """Restart services."""
-        self.restart_synapse()
-        return True
+        synapse_restart = self.restart_synapse()
+        ircd_restart = self.restart_matrix_ircd()
+        return synapse_restart and ircd_restart
 
     def start_service(self, service):
         """Start and enable the provided service, return run state."""
@@ -256,6 +265,20 @@ class MatrixHelper:
         """Get federation state."""
         return self.charm_config["enable-federation"]
 
+    def get_irc_port(self):
+        """Get the correct IRC port based on TLS state."""
+        if self.get_tls():
+            return 6697
+        else:
+            return 6667
+
+    def get_irc_mode(self):
+        """Get the correct frontend mode for reverse proxying based on TLS state."""
+        if self.get_tls():
+            return 'tcp+tls'
+        else:
+            return 'tcp'
+
     def get_tls(self):
         """Return the configured TLS state."""
         configured_value = self.charm_config["enable-tls"]
@@ -281,6 +304,7 @@ class MatrixHelper:
         """Configure Synapse for operation behind a reverse proxy."""
         server_name = self.get_external_domain()
         tls_enabled = self.get_tls()
+        ircd_enabled = self.charm_config.get("enable-ircd")
         federation_enabled = self.get_federation()
 
         if tls_enabled:
@@ -305,6 +329,14 @@ class MatrixHelper:
                 "external_port": 8448,
                 "internal_host": internal_host,
                 "internal_port": 8448,
+            })
+
+        if ircd_enabled:
+            proxy_config.append({
+                "mode": self.get_irc_mode(),
+                "external_port": self.get_irc_port(),
+                "internal_host": internal_host,
+                "internal_port": 5999,
             })
 
         proxy.configure(proxy_config)
@@ -405,10 +437,34 @@ class MatrixHelper:
                 return True
         return False
 
+    def render_ircd_config(self):
+        """Render the configuration for Matrix ircd."""
+        hookenv.log(
+            "Rendering IRCd configuration to {}".format(self.matrix_ircd_config),
+            hookenv.DEBUG,
+        )
+        if self.pgsql_configured():
+            render_result = templating.render(
+                "matrix-ircd.env.j2",
+                self.matrix_ircd_config,
+                {
+                    "homeserver": self.get_public_baseurl,
+                    "bind": "127.0.0.1:5999"
+                },
+            )
+            if render_result:
+                if any_file_changed([self.matrix_ircd_config]):
+                    self.restart_matrix_ircd()
+                return True
+        return False
+
     def render_configs(self):
         """Render configuration for the homeserver and enabled bridges."""
+        ircd_config = True
         synapse_config = self.render_synapse_config()
-        return synapse_config
+        if self.charm_config.get("enable-ircd"):
+            ircd_config = self.render_ircd_config()
+        return synapse_config and ircd_config
 
     def check_snap_installed(self, snapname):
         """Verify a snap is installed."""
@@ -453,6 +509,10 @@ class MatrixHelper:
                     hookenv.status_set("active", self.HEALTHY)
                     hookenv.open_port(8008)
                     hookenv.open_port(8448)
+                    if self.charm_config.get("enable-ircd"):
+                        hookenv.open_port(self.get_irc_port())
+                    else:
+                        hookenv.close_port(self.get_irc_port())
                     return True
                 else:
                     hookenv.status_set("blocked", "Matrix services are not running.")
@@ -465,4 +525,5 @@ class MatrixHelper:
             )
         hookenv.close_port(8008)
         hookenv.open_port(8448)
+        hookenv.close_port(self.get_irc_port())
         return False
