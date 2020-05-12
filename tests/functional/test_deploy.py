@@ -65,7 +65,7 @@ async def test_matrix_deploy(model, series, source, request):
 
 @pytest.mark.deploy
 async def test_postgresql_deploy(model, series, request):
-    """Deploy PostgreSQL from the charm store for testing Matrix."""
+    """Deploy PostgreSQL from the charm store for testing Matrix. Install bionic, because it doesn't support focal."""
     application_name = "matrix-pgsql-{}".format(series)
     cmd = [
         "juju",
@@ -74,7 +74,7 @@ async def test_postgresql_deploy(model, series, request):
         "-m",
         model.info.name,
         "--series",
-        series,
+        "bionic",
         application_name,
     ]
     if request.node.get_closest_marker("xfail"):
