@@ -100,3 +100,7 @@ options:
     type: boolean
     default: false
     description: "Enable searching the room list"
+  prefer-internal-ip:
+    type: boolean
+    default: false
+    description: "Prefer the use of IP addresses for reverse proxy and matrix IRCd when contacting the home server, useful if you have non-functional internal DNS"

@@ -39,6 +39,7 @@ class MatrixHelper:
     db_name = "matrix"
     external_port = 8008
     irc_internal_port = 6667
+    irc_internal_listen = "0.0.0.0"
 
     HEALTHY = "Matrix homeserver installed and configured"
 
@@ -267,6 +268,24 @@ class MatrixHelper:
         """Get federation state."""
         return self.charm_config["enable-federation"]
 
+    def get_internal_host(self):
+        """Get the host to use when configuring synapse to talk to IRCd and reverse proxies."""
+        prefer_internal_ip = self.charm_config.get("prefer-internal-ip")
+        fqdn = socket.getfqdn()
+        ip = socket.gethostbyname(fqdn)
+        if prefer_internal_ip:
+            return ip
+        return fqdn
+
+    def get_internal_url(self):
+        """Get the URL to use when configuring IRCd to talk to synapse."""
+        prefer_internal_ip = self.charm_config.get("prefer-internal-ip")
+        fqdn = socket.getfqdn()
+        ip = socket.gethostbyname(fqdn)
+        if prefer_internal_ip:
+            return "http://{}:8008".format(ip)
+        return "http://{}:8008".format(fqdn)
+
     def get_irc_port(self):
         """Get the correct IRC port based on TLS state."""
         if self.get_tls():
@@ -314,12 +333,11 @@ class MatrixHelper:
         else:
             self.external_port = 80
 
-        internal_host = socket.getfqdn()
         proxy_config = [
             {
                 "mode": "http",
                 "external_port": self.external_port,
-                "internal_host": internal_host,
+                "internal_host": self.get_internal_host(),
                 "internal_port": 8008,
                 "subdomain": server_name,
             },
@@ -330,7 +348,7 @@ class MatrixHelper:
                 {
                     "mode": "tcp",
                     "external_port": 8448,
-                    "internal_host": internal_host,
+                    "internal_host": self.get_internal_host(),
                     "internal_port": 8448,
                 }
             )
@@ -340,7 +358,7 @@ class MatrixHelper:
                 {
                     "mode": self.get_irc_mode(),
                     "external_port": self.get_irc_port(),
-                    "internal_host": internal_host,
+                    "internal_host": self.get_internal_host(),
                     "internal_port": self.irc_internal_port,
                 }
             )
@@ -458,8 +476,8 @@ class MatrixHelper:
                 "matrix-ircd.env.j2",
                 self.matrix_ircd_config,
                 {
-                    "home_server": self.get_public_baseurl(),
-                    "bind": "127.0.0.1:{}".format(self.irc_internal_port),
+                    "home_server": self.get_internal_url(),
+                    "bind": "{}:{}".format(self.irc_internal_listen, self.irc_internal_port),
                 },
             )
             if render_result:
@@ -480,7 +498,8 @@ class MatrixHelper:
         """Verify a snap is installed."""
         result = snap.is_installed(snapname)
         hookenv.log(
-            "Checking if snap {} is installed: {}".format(snapname, result), hookenv.DEBUG
+            "Checking if snap {} is installed: {}".format(snapname, result),
+            hookenv.DEBUG,
         )
         return result
 

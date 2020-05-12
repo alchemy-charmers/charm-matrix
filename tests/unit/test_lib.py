@@ -93,7 +93,7 @@ def test_register_user(matrix, mock_check_output, mock_psycopg2, mock_random):
             "-a",
             "-c",
             matrix.synapse_config,
-            "http://mockhost:8008",
+            "http://mock.fqdn:8008",
         ]
     )
     assert mock_check_output.call_count == 1
@@ -109,7 +109,7 @@ def test_register_user(matrix, mock_check_output, mock_psycopg2, mock_random):
             "mmmmmmmmmmmmmmmm",
             "-c",
             matrix.synapse_config,
-            "http://mockhost:8008",
+            "http://mock.fqdn:8008",
         ]
     )
     assert mock_check_output.call_count == 2
@@ -157,7 +157,7 @@ def test_start_services(matrix, mock_host_service):
 def test_get_server_name(matrix, mock_socket):
     """Test get_server_name."""
     result = matrix.get_server_name()
-    assert result == "mockhost"
+    assert result == "mock.fqdn"
     matrix.charm_config["server-name"] = "manualmockhost"
     result = matrix.get_server_name()
     assert result == "manualmockhost"
@@ -167,14 +167,14 @@ def test_baseurl(matrix):
     """Test the get_public_baseurl function."""
     matrix.charm_config["enable-tls"] = False
     result = matrix.get_public_baseurl()
-    assert result == "http://mockhost:8008"
+    assert result == "http://mock.fqdn:8008"
     matrix.charm_config["enable-tls"] = False
     matrix.external_port = 80
     result = matrix.get_public_baseurl()
-    assert result == "http://mockhost"
+    assert result == "http://mock.fqdn"
     matrix.charm_config["enable-tls"] = True
     result = matrix.get_public_baseurl()
-    assert result == "https://mockhost"
+    assert result == "https://mock.fqdn"
 
 
 def test_get_tls(matrix):
@@ -198,11 +198,12 @@ def test_get_federation(matrix):
 
 
 def test_configure_proxy(matrix):
-    """Test configure_proxy."""
+    """Test configure_proxy with internal IP preference but no internal host preference."""
     mock_proxy = mock.Mock()
     matrix.charm_config["enable-tls"] = False
     matrix.charm_config["enable-federation"] = False
-    matrix.charm_config["external-domain"] = ""
+    matrix.charm_config["external-domain"] = "mock.external"
+    matrix.charm_config["prefer-internal-ip"] = True
     matrix.configure_proxy(mock_proxy)
     assert mock_proxy.configure.called
     assert mock_proxy.configure.call_args == mock.call(
@@ -210,9 +211,49 @@ def test_configure_proxy(matrix):
             {
                 "mode": "http",
                 "external_port": 80,
-                "internal_host": "mockhost",
+                "internal_host": "10.10.10.10",
                 "internal_port": 8008,
-                "subdomain": "mockhost",
+                "subdomain": "mock.external",
+            }
+        ]
+    )
+
+    """Test configure_proxy with internal IP preference and internal host preference."""
+    mock_proxy = mock.Mock()
+    matrix.charm_config["enable-tls"] = False
+    matrix.charm_config["enable-federation"] = False
+    matrix.charm_config["external-domain"] = "mock.external"
+    matrix.charm_config["prefer-internal-ip"] = True
+    matrix.configure_proxy(mock_proxy)
+    assert mock_proxy.configure.called
+    assert mock_proxy.configure.call_args == mock.call(
+        [
+            {
+                "mode": "http",
+                "external_port": 80,
+                "internal_host": "10.10.10.10",
+                "internal_port": 8008,
+                "subdomain": "mock.external",
+            }
+        ]
+    )
+
+    """Test configure_proxy."""
+    mock_proxy = mock.Mock()
+    matrix.charm_config["enable-tls"] = False
+    matrix.charm_config["enable-federation"] = False
+    matrix.charm_config["external-domain"] = ""
+    matrix.charm_config["prefer-internal-ip"] = False
+    matrix.configure_proxy(mock_proxy)
+    assert mock_proxy.configure.called
+    assert mock_proxy.configure.call_args == mock.call(
+        [
+            {
+                "mode": "http",
+                "external_port": 80,
+                "internal_host": "mock.fqdn",
+                "internal_port": 8008,
+                "subdomain": "mock.fqdn",
             }
         ]
     )
@@ -229,7 +270,7 @@ def test_configure_proxy(matrix):
             {
                 "mode": "http",
                 "external_port": 80,
-                "internal_host": "mockhost",
+                "internal_host": "mock.fqdn",
                 "internal_port": 8008,
                 "subdomain": "matrix.mockhost",
             }
@@ -248,9 +289,9 @@ def test_configure_proxy(matrix):
             {
                 "mode": "http",
                 "external_port": 443,
-                "internal_host": "mockhost",
+                "internal_host": "mock.fqdn",
                 "internal_port": 8008,
-                "subdomain": "mockhost",
+                "subdomain": "mock.fqdn",
             }
         ]
     )
@@ -268,7 +309,7 @@ def test_configure_proxy(matrix):
             {
                 "mode": "http",
                 "external_port": 80,
-                "internal_host": "mockhost",
+                "internal_host": "mock.fqdn",
                 "internal_port": 8008,
                 "subdomain": "manual.mock.host",
             }
@@ -288,7 +329,7 @@ def test_configure_proxy(matrix):
             {
                 "mode": "http",
                 "external_port": 80,
-                "internal_host": "mockhost",
+                "internal_host": "mock.fqdn",
                 "internal_port": 8008,
                 "subdomain": "matrix.manual.mock.host",
             }
@@ -308,14 +349,14 @@ def test_configure_proxy(matrix):
             {
                 "mode": "http",
                 "external_port": 443,
-                "internal_host": "mockhost",
+                "internal_host": "mock.fqdn",
                 "internal_port": 8008,
-                "subdomain": "mockhost",
+                "subdomain": "mock.fqdn",
             },
             {
                 "mode": "tcp",
                 "external_port": 8448,
-                "internal_host": "mockhost",
+                "internal_host": "mock.fqdn",
                 "internal_port": 8448,
             }
         ]
@@ -334,14 +375,14 @@ def test_configure_proxy(matrix):
             {
                 "mode": "http",
                 "external_port": 443,
-                "internal_host": "mockhost",
+                "internal_host": "mock.fqdn",
                 "internal_port": 8008,
                 "subdomain": "manual.mock.host",
             },
             {
                 "mode": "tcp",
                 "external_port": 8448,
-                "internal_host": "mockhost",
+                "internal_host": "mock.fqdn",
                 "internal_port": 8448,
             }
         ]
@@ -360,14 +401,14 @@ def test_configure_proxy(matrix):
             {
                 "mode": "http",
                 "external_port": 443,
-                "internal_host": "mockhost",
+                "internal_host": "mock.fqdn",
                 "internal_port": 8008,
                 "subdomain": "matrix.manual.mock.host",
             },
             {
                 "mode": "tcp",
                 "external_port": 8448,
-                "internal_host": "mockhost",
+                "internal_host": "mock.fqdn",
                 "internal_port": 8448,
             }
         ]
@@ -387,20 +428,20 @@ def test_configure_proxy(matrix):
             {
                 "mode": "http",
                 "external_port": 443,
-                "internal_host": "mockhost",
+                "internal_host": "mock.fqdn",
                 "internal_port": 8008,
                 "subdomain": "matrix.manual.mock.host",
             },
             {
                 "mode": "tcp",
                 "external_port": 8448,
-                "internal_host": "mockhost",
+                "internal_host": "mock.fqdn",
                 "internal_port": 8448,
             },
             {
                 "mode": "tcp+tls",
                 "external_port": 6697,
-                "internal_host": "mockhost",
+                "internal_host": "mock.fqdn",
                 "internal_port": 6667,
             },
         ]
@@ -416,20 +457,20 @@ def test_configure_proxy(matrix):
             {
                 "mode": "http",
                 "external_port": 80,
-                "internal_host": "mockhost",
+                "internal_host": "mock.fqdn",
                 "internal_port": 8008,
                 "subdomain": "matrix.manual.mock.host",
             },
             {
                 "mode": "tcp",
                 "external_port": 8448,
-                "internal_host": "mockhost",
+                "internal_host": "mock.fqdn",
                 "internal_port": 8448,
             },
             {
                 "mode": "tcp",
                 "external_port": 6667,
-                "internal_host": "mockhost",
+                "internal_host": "mock.fqdn",
                 "internal_port": 6667,
             },
         ]
@@ -488,6 +529,24 @@ def test_get_irc_mode(matrix):
     assert matrix.get_irc_mode() == "tcp+tls"
     matrix.charm_config["enable-tls"] = False
     assert matrix.get_irc_mode() == "tcp"
+
+
+def test_get_internal_url(matrix):
+    """Test getting internal URLs."""
+    matrix.charm_config["prefer-internal-ip"] = True
+    matrix.charm_config["prefer-internal-host"] = True
+    assert matrix.get_internal_url() == "http://10.10.10.10:8008"
+    matrix.charm_config["prefer-internal-ip"] = False
+    assert matrix.get_internal_url() == "http://mock.fqdn:8008"
+
+
+def test_get_internal_host(matrix):
+    """Test getting internal host name or IP."""
+    matrix.charm_config["prefer-internal-ip"] = True
+    matrix.charm_config["prefer-internal-host"] = True
+    assert matrix.get_internal_host() == "10.10.10.10"
+    matrix.charm_config["prefer-internal-ip"] = False
+    assert matrix.get_internal_host() == "mock.fqdn"
 
 
 def test_render_synapse_config(matrix, tmpdir):

@@ -262,7 +262,21 @@ def mock_template(monkeypatch):
 @pytest.fixture
 def mock_socket(monkeypatch):
     """Mock common socket library functions for testing with known inputs."""
-    monkeypatch.setattr("lib_matrix.socket.getfqdn", lambda: "mockhost")
+    def mock_gethostbyname(name):
+        if name == 'mock.fqdn':
+            return "10.10.10.10"
+        return '1.1.1.1'
+
+    def mock_getfqdn():
+        return 'mock.fqdn'
+
+    mock_socket_getfqdn = mock.Mock()
+    mock_socket_getfqdn.side_effect = mock_getfqdn
+    mock_socket_gethostbyname = mock.Mock()
+    mock_socket_gethostbyname.side_effect = mock_gethostbyname
+
+    monkeypatch.setattr("lib_matrix.socket.getfqdn", mock_socket_getfqdn)
+    monkeypatch.setattr("lib_matrix.socket.gethostbyname", mock_socket_gethostbyname)
 
 
 @pytest.fixture

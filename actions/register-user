@@ -1,4 +1,5 @@
 #!/usr/local/sbin/charm-env python3
+"""Register user."""
 
 from lib_matrix import MatrixHelper
 from charmhelpers.core import hookenv
