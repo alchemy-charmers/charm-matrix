@@ -16,8 +16,7 @@ options:
       - libffi-dev
     python_packages:
       - signedjson
-      - psycopg2
-      - pyOpenSSL
+      - psycopg2-binary
   snap:
     matrix-synapse:
       channel: stable

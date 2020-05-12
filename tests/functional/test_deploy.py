@@ -99,6 +99,21 @@ async def test_matrix_snap_upload(model, series, source, request):
     subprocess.check_call(cmd)
 
 
+@pytest.mark.deploy
+async def test_matrix_ircd_snap_upload(model, series, source, request):
+    """Upload snap resources for Matrix and appservice bridges so install can be tested."""
+    application_name = "matrix-{}-{}".format(series, source[0])
+    cmd = [
+        "juju",
+        "attach-resource",
+        "-m",
+        model.info.name,
+        application_name,
+        "matrix-ircd=snaps/matrix-ircd.snap"
+    ]
+    subprocess.check_call(cmd)
+
+
 @pytest.mark.timeout(300)
 @pytest.mark.deploy
 async def test_charm_upgrade(model, app):
@@ -120,7 +135,7 @@ async def test_charm_upgrade(model, app):
     await model.block_until(lambda: unit.agent_status == "executing")
 
 
-@pytest.mark.timeout(600)
+@pytest.mark.timeout(1200)
 @pytest.mark.deploy
 async def test_matrix_status(model, app):
     """Await the status of each application to enter expected state."""

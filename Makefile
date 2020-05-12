@@ -30,7 +30,6 @@ submodules:
 lint:
 	@echo "Running flake8"
 	@-tox -e lintverbose
-	@-tox -e lintjunit
 
 test: lint unittest functional
 
