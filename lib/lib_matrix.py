@@ -448,7 +448,7 @@ class MatrixHelper:
                 "matrix-ircd.env.j2",
                 self.matrix_ircd_config,
                 {
-                    "homeserver": self.get_public_baseurl,
+                    "home_server": self.get_public_baseurl(),
                     "bind": "127.0.0.1:5999"
                 },
             )

@@ -25,6 +25,15 @@ def install_matrix_synapse():
     hookenv.status_set("active", "Matrix Installed")
 
 
+@when_not("snap.installed.matrix-ircd")
+def install_matrix_ircd():
+    """Installs matrix IRCd snap."""
+    if matrix.charm_config.get("enable-ircd"):
+        hookenv.status_set("maintenance", "Installing Matrix IRCd")
+        snap.install("matrix-ircd")
+        hookenv.status_set("active", "Matrix Installed")
+
+
 @when("pgsql.database.connected")
 def set_pgsql_db():
     """Set PostgreSQL database name, so the related charm will create the DB for us."""
