@@ -9,31 +9,49 @@ from charmhelpers.core import unitdata
 @pytest.fixture
 def mock_snap(monkeypatch):
     """Mock snap layer."""
-    class Snap():
+    def mock_install(name):
+        if name == 'fail-snap':
+            print("Mocking failure installing snap")
+            return False
+        print("Mocking installing snap {}".format(
+            name
+        ))
+        return True
 
-        def install(self, name):
-            if name == 'fail-snap':
-                print("Mocking failure installing snap")
-                return False
-            print("Mocking installing snap {}".format(
-                name
-            ))
-            return True
+    def mock_is_installed(name):
+        if name == 'fail-snap':
+            print("Mocking snap not installed")
+            return False
+        print("Mocking snap install check {}".format(
+            name
+        ))
+        return True
 
-        def is_installed(self, name):
-            if name == 'fail-snap':
-                print("Mocking snap not installed")
-                return False
-            print("Mocking snap install check {}".format(
-                name
-            ))
-            return True
+    def mock_remove(name):
+        print("Sure, we removed that snap alright")
+        return True
 
-        def remove(self, name):
-            print("Sure, we removed that snap alright")
-            return True
+    snap = mock.Mock()
+    snap.install = mock.Mock()
+    snap.install.side_effect = mock_install
+    snap.is_installed = mock.Mock()
+    snap.is_installed.side_effect = mock_is_installed
+    snap.remove = mock.Mock()
+    snap.remove.side_effect = mock_remove
 
-    monkeypatch.setattr("lib_matrix.snap", Snap())
+    monkeypatch.setattr("lib_matrix.snap", snap)
+    return snap
+
+
+@pytest.fixture
+def mock_random(monkeypatch):
+    """Mock the random string function in the helper library."""
+    class MockedSystemRandom():
+
+        def choice(self, strrange):
+            return "m"
+
+    monkeypatch.setattr("lib_matrix.SystemRandom", MockedSystemRandom)
 
 
 @pytest.fixture
@@ -218,7 +236,7 @@ def mock_unit_db(monkeypatch):
     """Mock the key value store."""
     mock_kv = mock.Mock()
     mock_kv.return_value = unitdata.Storage(path=":memory:")
-    monkeypatch.setattr("libgitlab.unitdata.kv", mock_kv)
+    monkeypatch.setattr("lib_matrix.unitdata.kv", mock_kv)
 
 
 @pytest.fixture
@@ -260,6 +278,7 @@ def matrix(
     mock_port,
     mock_socket,
     mock_snap,
+    mock_unit_db,
     monkeypatch,
 ):
     """Mock the Matrix helper library."""

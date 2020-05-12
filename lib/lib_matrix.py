@@ -1,6 +1,6 @@
 """Helper class for configuring Matrix."""
 import socket
-import random
+from random import SystemRandom
 import string
 
 import psycopg2
@@ -38,6 +38,7 @@ class MatrixHelper:
 
     db_name = "matrix"
     external_port = 8008
+    irc_internal_port = 6667
 
     HEALTHY = "Matrix homeserver installed and configured"
 
@@ -131,6 +132,7 @@ class MatrixHelper:
             cursor.close()
             connection.close()
             return result
+        return False
 
     def pgsql_create_db(self, name):
         """Create the named PostgreSQL database."""
@@ -159,7 +161,7 @@ class MatrixHelper:
     def random_string(self, length):
         """Implement the random_string function from the synapse stringutils package."""
         return "".join(
-            random.SystemRandom().choice(string.ascii_letters) for _ in range(length)
+            SystemRandom().choice(string.ascii_letters) for _ in range(length)
         )
 
     def get_token(self, name):
@@ -275,9 +277,9 @@ class MatrixHelper:
     def get_irc_mode(self):
         """Get the correct frontend mode for reverse proxying based on TLS state."""
         if self.get_tls():
-            return 'tcp+tls'
+            return "tcp+tls"
         else:
-            return 'tcp'
+            return "tcp"
 
     def get_tls(self):
         """Return the configured TLS state."""
@@ -324,20 +326,24 @@ class MatrixHelper:
         ]
 
         if federation_enabled:
-            proxy_config.append({
-                "mode": "tcp",
-                "external_port": 8448,
-                "internal_host": internal_host,
-                "internal_port": 8448,
-            })
+            proxy_config.append(
+                {
+                    "mode": "tcp",
+                    "external_port": 8448,
+                    "internal_host": internal_host,
+                    "internal_port": 8448,
+                }
+            )
 
         if ircd_enabled:
-            proxy_config.append({
-                "mode": self.get_irc_mode(),
-                "external_port": self.get_irc_port(),
-                "internal_host": internal_host,
-                "internal_port": 5999,
-            })
+            proxy_config.append(
+                {
+                    "mode": self.get_irc_mode(),
+                    "external_port": self.get_irc_port(),
+                    "internal_host": internal_host,
+                    "internal_port": self.irc_internal_port,
+                }
+            )
 
         proxy.configure(proxy_config)
 
@@ -351,7 +357,9 @@ class MatrixHelper:
             and self.kv.get("pgsql_pass")
         ):
             hookenv.log(
-                "PostgreSQL is related and configured in the charm KV store",
+                "PostgreSQL is related and configured in the charm KV store: {}".format(
+                    self.kv.get("pgsql_host")
+                ),
                 hookenv.DEBUG,
             )
             return True
@@ -361,12 +369,13 @@ class MatrixHelper:
         return False
 
     def remove_pgsql_conf(self):
-        """Remove the MySQL configuration from the unit KV store."""
-        self.kv.unset("db_host")
-        self.kv.unset("db_port")
-        self.kv.unset("db_db")
-        self.kv.unset("db_user")
-        self.kv.unset("db_pass")
+        """Remove the pgsql configuration from the unit KV store."""
+        self.kv.unset("pgsql_host")
+        self.kv.unset("pgsql_port")
+        self.kv.unset("pgsql_db")
+        self.kv.unset("pgsql_user")
+        self.kv.unset("pgsql_pass")
+        self.kv.flush()
 
     def save_pgsql_conf(self, db):
         """Configure Matrix with knowledge of a related PostgreSQL endpoint."""
@@ -381,6 +390,7 @@ class MatrixHelper:
             self.kv.set("pgsql_db", db.master.dbname)
             self.kv.set("pgsql_user", db.master.user)
             self.kv.set("pgsql_pass", db.master.password)
+            self.kv.flush()
 
     def render_synapse_config(self):
         """Render the configuration for Matrix synapse."""
@@ -449,7 +459,7 @@ class MatrixHelper:
                 self.matrix_ircd_config,
                 {
                     "home_server": self.get_public_baseurl(),
-                    "bind": "127.0.0.1:5999"
+                    "bind": "127.0.0.1:{}".format(self.irc_internal_port),
                 },
             )
             if render_result:
@@ -468,15 +478,23 @@ class MatrixHelper:
 
     def check_snap_installed(self, snapname):
         """Verify a snap is installed."""
-        return snap.is_installed(snapname)
+        result = snap.is_installed(snapname)
+        hookenv.log(
+            "Checking if snap {} is installed: {}".format(snapname, result), hookenv.DEBUG
+        )
+        return result
 
     def install_snap(self, snapname):
         """Install specific snap."""
-        snap.install(snapname)
+        result = snap.install(snapname)
+        hookenv.log(
+            "Snap {} install completed: {}".format(snapname, result), hookenv.DEBUG
+        )
+        return result
 
     def remove_snap(self, snapname):
         """Remove specific snap."""
-        snap.remove(snapname)
+        return snap.remove(snapname)
 
     def install_snaps(self):
         """Install snaps for configured briges, returning True if an install was performed."""
@@ -488,11 +506,15 @@ class MatrixHelper:
         ircd_result = True
         if self.charm_config.get("enable-ircd"):
             if not self.check_snap_installed(self.matrix_ircd_snap):
-                hookenv.log("Installing {} snap".format(self.matrix_ircd_snap), hookenv.DEBUG)
+                hookenv.log(
+                    "Installing {} snap".format(self.matrix_ircd_snap), hookenv.DEBUG
+                )
                 ircd_result = self.install_snap(self.matrix_ircd_snap)
         else:
             if self.check_snap_installed(self.matrix_ircd_snap):
-                hookenv.log("Removing {} snap".format(self.matrix_ircd_snap), hookenv.DEBUG)
+                hookenv.log(
+                    "Removing {} snap".format(self.matrix_ircd_snap), hookenv.DEBUG
+                )
                 self.remove_snap(self.matrix_ircd_snap)
         return synapse_result and ircd_result
 
@@ -503,27 +525,35 @@ class MatrixHelper:
         Verified correct snaps are installed, renders
         configuration files and restarts services as needed.
         """
+        hookenv.log("Ensuring snap(s) installed", hookenv.DEBUG)
         if self.install_snaps():
+            hookenv.log("Rendering config(s)", hookenv.DEBUG)
             if self.render_configs():
+                hookenv.log("Starting service(s)", hookenv.DEBUG)
                 if self.start_services():
+                    hookenv.log("Opening ports for service(s)", hookenv.DEBUG)
                     hookenv.status_set("active", self.HEALTHY)
                     hookenv.open_port(8008)
                     hookenv.open_port(8448)
                     if self.charm_config.get("enable-ircd"):
-                        hookenv.open_port(self.get_irc_port())
+                        hookenv.open_port(self.irc_internal_port)
                     else:
-                        hookenv.close_port(self.get_irc_port())
+                        hookenv.close_port(self.irc_internal_port)
                     return True
                 else:
+                    hookenv.log("Service(s) not running", hookenv.DEBUG)
                     hookenv.status_set("blocked", "Matrix services are not running.")
             else:
+                hookenv.log("Configuration failed to render", hookenv.DEBUG)
                 hookenv.status_set("blocked", "Trying to render configuration...")
         else:
+            hookenv.log("Snap installation failure", hookenv.DEBUG)
             hookenv.status_set(
                 "blocked",
                 "Snaps are not installable. Check snap store accessibility or that resources are uploaded.",
             )
+        hookenv.log("Closing all ports as we're not ready", hookenv.DEBUG)
         hookenv.close_port(8008)
         hookenv.open_port(8448)
-        hookenv.close_port(self.get_irc_port())
+        hookenv.close_port(self.irc_internal_port)
         return False
