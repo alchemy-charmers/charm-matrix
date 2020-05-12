@@ -2,6 +2,9 @@
 exclude:
   - interfaces
   - layers
+  - snaps
+  - tests
+  - report
 # include required layers here
 includes:
   - layer:basic
@@ -34,4 +37,6 @@ options:
       revision: null
   version:
     file_name: "repo-info"
+ignore:
+  - operator_requires.py
 repo: https://git.ec0.io/alchemy-charmers/charm-matrix
