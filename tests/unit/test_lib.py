@@ -354,7 +354,7 @@ def test_configure_proxy(matrix):
                 "subdomain": "mock.fqdn",
             },
             {
-                "mode": "tcp",
+                "mode": "tcp+tls",
                 "external_port": 8448,
                 "internal_host": "mock.fqdn",
                 "internal_port": 8448,
@@ -380,7 +380,7 @@ def test_configure_proxy(matrix):
                 "subdomain": "manual.mock.host",
             },
             {
-                "mode": "tcp",
+                "mode": "tcp+tls",
                 "external_port": 8448,
                 "internal_host": "mock.fqdn",
                 "internal_port": 8448,
@@ -406,7 +406,7 @@ def test_configure_proxy(matrix):
                 "subdomain": "matrix.manual.mock.host",
             },
             {
-                "mode": "tcp",
+                "mode": "tcp+tls",
                 "external_port": 8448,
                 "internal_host": "mock.fqdn",
                 "internal_port": 8448,
@@ -433,7 +433,7 @@ def test_configure_proxy(matrix):
                 "subdomain": "matrix.manual.mock.host",
             },
             {
-                "mode": "tcp",
+                "mode": "tcp+tls",
                 "external_port": 8448,
                 "internal_host": "mock.fqdn",
                 "internal_port": 8448,

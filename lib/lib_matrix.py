@@ -293,6 +293,13 @@ class MatrixHelper:
         else:
             return 6667
 
+    def get_federation_mode(self):
+        """Get the correct frontend mode for reverse proxying based on TLS state."""
+        if self.get_tls():
+            return "tcp+tls"
+        else:
+            return "tcp"
+
     def get_irc_mode(self):
         """Get the correct frontend mode for reverse proxying based on TLS state."""
         if self.get_tls():
@@ -346,7 +353,7 @@ class MatrixHelper:
         if federation_enabled:
             proxy_config.append(
                 {
-                    "mode": "tcp",
+                    "mode": self.get_federation_mode(),
                     "external_port": 8448,
                     "internal_host": self.get_internal_host(),
                     "internal_port": 8448,

@@ -31,12 +31,24 @@ federation_ip_range_blacklist:
 {% endif %}
 listeners:
   - port: 8008
+    bind_addresses:
+      - '::'
     tls: false
     type: http
     x_forwarded: true
     resources:
-      - names: [client, federation]
+      - names: [client]
         compress: false
+{% if enable_federation %}
+  - port: 8448
+    bind_addresses:
+      - '::'
+    type: http
+    x_forwarded: true
+    resources:
+      - names: [federation]
+        compress: false
+{% endif %}
 {% if pgsql_configured %}
 database:
   name: "psycopg2"
